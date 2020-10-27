@@ -14,7 +14,7 @@ using namespace std;
 struct FSPspace {
   int machines;
   int jobs;
-  int operations [0] [0];
+  int** operations;
 };
 
 int invalidFormatError(string message){
@@ -22,40 +22,57 @@ int invalidFormatError(string message){
    exit(EXIT_FAILURE);
 }
 
-list<int> convertListStingToInt(list<string> chunks){
-   list<int> nums;
+int* convertListStingToInt(list<string> chunks){
+   int size = chunks.size();
+   int* nums = new int[size];
    list<string>::iterator it;
-   for (it = chunks.begin(); it != chunks.end(); ++it){
-      nums.push_back(stoi(*it));
+   for (int i = 0; i < size; i++){
+      nums[i] = stoi(chunks.front());
+      chunks.pop_front();
       }
    return nums;
 }
 
-list<int> parseLine(string line){
+int* parseLine(string line, int expected){
       istringstream stream(line);
       list<string> chunks;
       copy(std::istream_iterator<std::string>(stream), std::istream_iterator<std::string>(), std::back_inserter(chunks));
+      if (expected != chunks.size()){
+         cout<<"expected: " << expected << " actual: " <<chunks.size()<<". ";
+         invalidFormatError("invalid number of arguments");
+      }
       return convertListStingToInt(chunks);
 }
 
 void parseFile(string fileName){
+   int* chunks;
    ifstream file;
    file.open(fileName);
-   int machines, jobs;
+   FSPspace flowshop;
    if (file){ 
       printf("file exists\n");
        if (file.is_open()){
          string line;
-         getline(file, line);
-         list<string> chunks = parseLine(line);
-         if( chunks.size() != 2) {
-            invalidFormatError("firstline does not contain 2 arguments");
-         } else {
-            jobs = stoi(chunks.front());
-            chunks.pop_front();
-            machines = stoi(chunks.front());
-            cout<< "jobs: " <<jobs << " machines:" << machines << "\n";
-         }
+         getline(file, line);  // get the first line containing two values: number of jobs and number of machines
+            chunks = parseLine(line, 2);
+            flowshop.jobs = chunks[0];
+            flowshop.machines = chunks[1];
+            flowshop.operations = new int* [flowshop.machines];
+            cout<< "jobs: " <<flowshop.jobs << " machines:" << flowshop.machines << "\n";
+            for (int m = 0; m < flowshop.machines; m++){
+                  flowshop.operations[m] = new int [flowshop.jobs];
+                  getline(file, line); 
+                  chunks = parseLine(line, flowshop.jobs);
+                  for (int j = 0; j< flowshop.jobs; j++){
+                   flowshop.operations[m][j] = chunks[j];
+                  }
+            }
+            for (int m = 0; m < flowshop.machines; m++){
+               for (int j = 0;  j < flowshop.jobs; j++){
+                  cout<<  flowshop.operations[m] [j] << " ";
+            }
+               cout<<"\n";
+            }
 
       } else {
       printf("could not open file\n");
@@ -65,7 +82,6 @@ void parseFile(string fileName){
       printf("file doesnt exist\n");
       exit(EXIT_FAILURE);
    }
-        
 }
 
 
@@ -75,11 +91,4 @@ int main(int argc, char* argv[]) {
       exit(EXIT_FAILURE);
    }
          parseFile(argv[1]);
-
 }
-
-
-
-
-
-
