@@ -82,13 +82,17 @@ void solve(FSPspace flowshop){
    problems.push_back(root);
    //solve problem recursively
    while (problems.size() > 0){
-      cout << "asd\n";
       Node node = problems.back();
       problems.pop_back();
-      
+
+      // cout << "scheduled: [ ";
+      // for (int i =0; i<node.scheduled.size(); i++) cout << node.scheduled[i] << " ";
+      // cout << "], left: [ ";
+      // for (int i =0; i<node.left.size(); i++) cout << node.left[i] << " ";
+      // cout <<"]\n";
+
       // if there are more than 1 jobs left unscheduled and uper bound is known
       if (node.left.size() > 1){
-         cout << "unscheduled: "<< node.left.size();
          if (ub != -1){
             int lb = bound(flowshop, node); //get lb
             if (lb < ub){
@@ -113,6 +117,7 @@ void solve(FSPspace flowshop){
          }
 
       } else { // if one node is left
+
           int candidateBound = bound(flowshop, node);
           if (candidateBound < ub || ub == -1){
             ub = candidateBound;
@@ -121,8 +126,8 @@ void solve(FSPspace flowshop){
             }
          } 
       }
-      cout << "Solution time: " << ub <<"\n";
-      for(int i =0; i < solution.size(); i++) cout << solution[i] << " ";
+      cout << "Optimal makespan: " << ub <<"\n" << "Optimal job scheduling order: "; ;
+      for(int i =0; i < solution.size(); i++) cout << solution[i] + 1 << " ";
          cout << "\n";
    }
 
