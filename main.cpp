@@ -82,11 +82,13 @@ void solve(FSPspace flowshop){
    problems.push_back(root);
    //solve problem recursively
    while (problems.size() > 0){
+      cout << "asd\n";
       Node node = problems.back();
       problems.pop_back();
       
       // if there are more than 1 jobs left unscheduled and uper bound is known
       if (node.left.size() > 1){
+         cout << "unscheduled: "<< node.left.size();
          if (ub != -1){
             int lb = bound(flowshop, node); //get lb
             if (lb < ub){
@@ -96,7 +98,17 @@ void solve(FSPspace flowshop){
                   child.scheduled.push_back(node.left[i]); // schedule i'th element
                   child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
                   child.left.erase(child.left.begin()+i); // erase i'th element
+                  problems.push_back(child);
                }
+            }
+         } else {
+            for (int i =0; i < node.left.size(); i++){
+               Node child;
+               child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
+               child.scheduled.push_back(node.left[i]); // schedule i'th element
+               child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
+               child.left.erase(child.left.begin()+i); // erase i'th element
+               problems.push_back(child);
             }
          }
 
@@ -189,5 +201,5 @@ int main(int argc, char* argv[]) {
       exit(EXIT_FAILURE);
    }
       FSPspace flowshop = parseFile(argv[1]);
-
+      solve(flowshop);
 }
