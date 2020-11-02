@@ -85,11 +85,11 @@ void solve(FSPspace flowshop){
       Node node = problems.back();
       problems.pop_back();
 
-      // cout << "scheduled: [ ";
-      // for (int i =0; i<node.scheduled.size(); i++) cout << node.scheduled[i] << " ";
-      // cout << "], left: [ ";
-      // for (int i =0; i<node.left.size(); i++) cout << node.left[i] << " ";
-      // cout <<"]\n";
+      cout << "scheduled: [ ";
+      for (int i =0; i<node.scheduled.size(); i++) cout << node.scheduled[i] << " ";
+      cout << "], left: [ ";
+      for (int i =0; i<node.left.size(); i++) cout << node.left[i] << " ";
+      cout <<"]\n";
 
       // if there are more than 1 jobs left unscheduled and uper bound is known
       if (node.left.size() > 1){
@@ -104,7 +104,8 @@ void solve(FSPspace flowshop){
                   child.left.erase(child.left.begin()+i); // erase i'th element
                   problems.push_back(child);
                }
-            }
+            } 
+            // else {cout<<"PRUNED\n";}
          } else {
             for (int i =0; i < node.left.size(); i++){
                Node child;
@@ -123,6 +124,7 @@ void solve(FSPspace flowshop){
             ub = candidateBound;
             solution.assign(node.scheduled.begin(), node.scheduled.end());
             solution.push_back(node.left.back());
+            cout<<"NEW SOLUTION: "<<ub<<"\n";
             }
          } 
       }
