@@ -17,6 +17,7 @@ using namespace std;
 struct Node {
    vector<int> scheduled;
    vector<int> left;
+   vector<int> completion;
 };
 
 struct FSPspace {
@@ -27,28 +28,13 @@ struct FSPspace {
 
 int bound(FSPspace flowshop, Node node){
    vector<int> bounds;
-   vector<int> outTimes;
+   // vector<int> outTimes;
    //initialize out times
-   for (int s = 0; s < node.scheduled.size(); s++)  outTimes.push_back(0);
+   // for (int s = 0; s < node.scheduled.size(); s++)  outTimes.push_back(0);
 
    for(int m = 0; m < flowshop.machines; m++){        //for all machines
       
-      for (int s = 0; s < node.scheduled.size(); s++){ //for calculate scheduled job times
-         int j = node.scheduled[s];
-         int procedureTime = flowshop.operations[m][j];
-         if (s == 0){
-            outTimes[s] += procedureTime;  //first element does not ever wait
-         } else {
-           int wait = outTimes[s-1] - outTimes[s]; 
-            if (wait > 0) { //positive wait time means procedure has to wait for machine to be free
-               outTimes[s] += wait + procedureTime;
-            } else {
-               outTimes[s] += procedureTime;
-            }
-         }
-      } 
-
-      int bound = outTimes.back();
+      int bound = node.completion[m];
       vector<int> estimates;
       for (int l = 0; l < node.left.size(); l++){
          int j = node.left[l];
@@ -78,18 +64,23 @@ void solve(FSPspace flowshop){
    vector<Node> problems;
    Node root;
    for (int i = 0; i < flowshop.jobs; i++) root.left.push_back(i);
+   for (int m = 0; m < flowshop.machines; m++) root.completion.push_back(0);
 
    problems.push_back(root);
    //solve problem recursively
+   int count = 0;
    while (problems.size() > 0){
       Node node = problems.back();
       problems.pop_back();
 
-      cout << "scheduled: [ ";
-      for (int i =0; i<node.scheduled.size(); i++) cout << node.scheduled[i] << " ";
-      cout << "], left: [ ";
-      for (int i =0; i<node.left.size(); i++) cout << node.left[i] << " ";
-      cout <<"]\n";
+      // cout<< "nodes processed: " << count <<"\n";
+      // count++;
+
+      // cout << "scheduled: [ ";
+      // for (int i =0; i<node.scheduled.size(); i++) cout << node.scheduled[i] << " ";
+      // cout << "], left: [ ";
+      // for (int i =0; i<node.left.size(); i++) cout << node.left[i] << " ";
+      // cout <<"]\n";
 
       // if there are more than 1 jobs left unscheduled and uper bound is known
       if (node.left.size() > 1){
@@ -98,22 +89,29 @@ void solve(FSPspace flowshop){
             if (lb < ub){
                for (int i =0; i < node.left.size(); i++){
                   Node child;
+                  int newJob = node.left[i];
                   child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
-                  child.scheduled.push_back(node.left[i]); // schedule i'th element
+                  child.scheduled.push_back(newJob); // schedule i'th element
                   child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
                   child.left.erase(child.left.begin()+i); // erase i'th element
+                  child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
+                  for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
                   problems.push_back(child);
+
                }
             } 
             // else {cout<<"PRUNED\n";}
          } else {
             for (int i =0; i < node.left.size(); i++){
                Node child;
+               int newJob = node.left[i];
                child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
-               child.scheduled.push_back(node.left[i]); // schedule i'th element
+               child.scheduled.push_back(newJob); // schedule i'th element
                child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
                child.left.erase(child.left.begin()+i); // erase i'th element
-               problems.push_back(child);
+               child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
+               for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
+               problems.push_back(child);            
             }
          }
 
