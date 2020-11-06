@@ -20,6 +20,7 @@ struct Node {
    vector<int> scheduled;
    vector<int> left;
    vector<int> completion;
+   int lb;
 };
 
 struct FSPspace {
@@ -67,6 +68,9 @@ for (int m = flowshop.machines -2; m >= 0; m--){ //starting from the second to l
    return *max_element(bounds.begin(), bounds.end());
 }
 
+bool compareNodes(Node a, Node b){
+      return (a.lb > b.lb);
+}
 
 void solve(FSPspace flowshop){
 
@@ -77,81 +81,56 @@ void solve(FSPspace flowshop){
    //initialize problem
    int ub = -1;
    vector<int> solution;
-   stack<Node> problems;
+   vector<Node> problems;
    Node root;
    for (int i = 0; i < flowshop.jobs; i++) root.left.push_back(i);
    for (int m = 0; m < flowshop.machines; m++) root.completion.push_back(0);
-
-   problems.push(root);
+      root.lb = bound(flowshop, root);
+   problems.push_back(root);
    //solve problem recursively
    int count = 0;
    while (problems.size() > 0){
-      Node node = problems.top();
-      problems.pop();
-      // cout<< "nodes processed: " << count <<"\n";
-      // count++;
+      Node node = problems.back();
+      problems.pop_back();
+      if (node.lb < ub || ub == -1){
 
-      // cout << "scheduled: [ ";
-      // for (int i =0; i<node.scheduled.size(); i++) cout << node.scheduled[i] << " ";
-      // cout << "], left: [ ";
-      // for (int i =0; i<node.left.size(); i++) cout << node.left[i] << " ";
-      // cout <<"]\n";
-
-      // if there are more than 1 jobs left unscheduled and uper bound is known
-      if (node.left.size() > 1){
-         if (ub != -1){
-         auto boundStart = high_resolution_clock::now();
-            int lb = bound(flowshop, node); //get lb
-            boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundStart);
-            if (lb < ub){
-               auto branchStart = high_resolution_clock::now(); 
-               for (int i =0; i < node.left.size(); i++){
-                  Node child;
-                  int newJob = node.left[i];
-                  child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
-                  child.scheduled.push_back(newJob); // schedule i'th element
-                  child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
-                  child.left.erase(child.left.begin()+i); // erase i'th element
-                  child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
-                  for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
-                  problems.push(child);
+         //double check node lb. if node promising continue
+      vector<Node> children;
+      for (int i =0; i < node.left.size(); i++){
+            Node child;
+            int newJob = node.left[i];
+            child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
+            child.scheduled.push_back(newJob); // schedule i'th element
+            child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
+            child.left.erase(child.left.begin()+i); // erase i'th element
+            child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
+            for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
+           
+            if (child.left.size() == 1){ //get UB if 1 job left
+               int makespan = 0;
+               int job = child.left.back();
+               for (int m = 1; m < flowshop.machines; m++){
+               makespan = max(makespan, child.completion[m]) +flowshop.operations[m][job];
+               } 
+               if (makespan < ub || ub == -1){
+                  ub = makespan;
+                  solution.assign(child.scheduled.begin(), child.scheduled.end());
+                  solution.push_back(child.left.back());
+                  cout<<"NEW SOLUTION: "<<ub<<"\n";
                }
-              branchingTime +=duration_cast<microseconds>(high_resolution_clock::now() - branchStart);
-            } 
-            // else {cout<<"PRUNED\n";}
-         } else {
-            auto branchStart = high_resolution_clock::now(); 
-            for (int i =0; i < node.left.size(); i++){
-               Node child;
-               int newJob = node.left[i];
-               child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
-               child.scheduled.push_back(newJob); // schedule i'th element
-               child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
-               child.left.erase(child.left.begin()+i); // erase i'th element
-               child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
-               for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
-               problems.push(child);            
+            } else { 
+               //more than 1 unscheduled
+               child.lb = bound(flowshop, child);
+               if (child.lb < ub || ub == -1) { children.push_back(child);}
             }
-            branchingTime +=duration_cast<microseconds>(high_resolution_clock::now() - branchStart);
-
-         }
-
-      } else { // if one node is left
-      int makespan = 0;
-      int job = node.left.back();
-         for (int m = 1; m < flowshop.machines; m++){
-            makespan = max(makespan, node.completion[m]) +flowshop.operations[m][job];
-         } 
-         // int candidateBound = upperBound(flowshop, node);
-
-          if (makespan < ub || ub == -1){
-            ub = makespan;
-            solution.assign(node.scheduled.begin(), node.scheduled.end());
-            solution.push_back(node.left.back());
-            cout<<"NEW SOLUTION: "<<ub<<"\n";
             }
-         } 
+            sort(children.begin(), children.end(), compareNodes);
+            problems.insert(problems.end(), children.begin(), children.end());
+            // problems.push(child);
+          }
       }
+
+
       auto stop = high_resolution_clock::now(); 
       auto duration = duration_cast<microseconds>(stop - start); 
   
@@ -162,6 +141,74 @@ void solve(FSPspace flowshop){
       for(int i =0; i < solution.size(); i++) cout << solution[i] + 1 << " ";
          cout << "\n";
    }
+
+
+      // cout << "scheduled: [ ";
+      // for (int i =0; i<node.scheduled.size(); i++) cout << node.scheduled[i] << " ";
+      // cout << "], left: [ ";
+      // for (int i =0; i<node.left.size(); i++) cout << node.left[i] << " ";
+      // cout <<"]\n";
+
+//branch 
+
+
+
+      // if there are more than 1 jobs left unscheduled and uper bound is known
+      // if (node.left.size() > 1){
+      //    // if (ub != -1){
+      //    auto boundStart = high_resolution_clock::now();
+      //       int lb = bound(flowshop, node); //get lb
+      //       boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundStart);
+      //       if (lb < ub || ub == -1){
+      //          auto branchStart = high_resolution_clock::now(); 
+      //          for (int i =0; i < node.left.size(); i++){
+      //             Node child;
+      //             int newJob = node.left[i];
+      //             child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
+      //             child.scheduled.push_back(newJob); // schedule i'th element
+      //             child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
+      //             child.left.erase(child.left.begin()+i); // erase i'th element
+      //             child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
+      //             for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
+      //             problems.push(child);
+      //          }
+      //         branchingTime +=duration_cast<microseconds>(high_resolution_clock::now() - branchStart);
+      //       } 
+            // else {cout<<"PRUNED\n";}
+         // } 
+         // else {
+         //    auto branchStart = high_resolution_clock::now(); 
+         //    for (int i =0; i < node.left.size(); i++){
+         //       Node child;
+         //       int newJob = node.left[i];
+         //       child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
+         //       child.scheduled.push_back(newJob); // schedule i'th element
+         //       child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
+         //       child.left.erase(child.left.begin()+i); // erase i'th element
+         //       child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
+         //       for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
+         //       problems.push(child);            
+         //    }
+         //    branchingTime +=duration_cast<microseconds>(high_resolution_clock::now() - branchStart);
+
+         // }      
+      //  else { // if one node is left
+      // int makespan = 0;
+      // int job = node.left.back();
+      //    for (int m = 1; m < flowshop.machines; m++){
+      //       makespan = max(makespan, node.completion[m]) +flowshop.operations[m][job];
+      //    } 
+      //    // int candidateBound = upperBound(flowshop, node);
+
+      //     if (makespan < ub || ub == -1){
+      //       ub = makespan;
+      //       solution.assign(node.scheduled.begin(), node.scheduled.end());
+      //       solution.push_back(node.left.back());
+      //       cout<<"NEW SOLUTION: "<<ub<<"\n";
+      //       }
+      //    } 
+      
+
 
 
 int invalidFormatError(string message){
