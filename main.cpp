@@ -151,6 +151,7 @@ void solve(FSPspace flowshop){
    root.c1 = new int [flowshop.machines];
    root.c2 = new int [flowshop.machines];
    root.mSum = new int [flowshop.machines];
+   root.lb = 0; //lb for root doesnt matter as long as it's less than UB
 
    //set o1, o2 makespans to 0 and initialize sum(Pkj) to 0
    for (int m = 0; m < flowshop.machines; m++){
@@ -171,59 +172,67 @@ void solve(FSPspace flowshop){
    //solve problem recursively
    int count = 0;
    while (problems.size() > 0){
+      count ++;
+   //  cout<<count<<"\n";
       Node node = problems.back();
       problems.pop_back();
 
 
-      // if there are more than 1 jobs left unscheduled and uper bound is known
-      if (node.left.size() > 0){
-         // if (ub != -1){
+
       vector<Node> newProblems;
-         for (int j = 0; j<node.left.size(); j++){
+
+      // if there are more than 1 jobs left unscheduled and uper bound is known
+      if (node.left.size() > 1){
+        if(node.lb < ub){
+            for (int j = 0; j<node.left.size(); j++){
             int job = node.left[j];
             Node child1; // (o1 j, o2)
             Node child2; // (o1, j o2)
             vector<int>c1bounds;
             vector<int>c2bounds;
-
+            
             //set o1 and o2 on both nodes
             child1.s1.assign(node.s1.begin(), node.s1.end());
             child1.s2.assign(node.s2.begin(), node.s2.end()); //can rely on parent s2
             child2.s1.assign(node.s1.begin(), node.s1.end());
             child2.s2.assign(node.s2.begin(), node.s2.end());
 
+            
+
             //set up left jobs
             child1.left.assign(node.left.begin(), node.left.end());
             child1.left.erase(child1.left.begin()+j);
             child2.left.assign(child1.left.begin(), child1.left.end());
+
 
             //insert jobs to both childred
             child1.s1.push_back(job);
             child2.s2.insert(child2.s2.begin(), job);
 
             // set up sum(Pkj) on all machines. subtract the selected job from sum
+            child1.mSum = new int [flowshop.machines];
+            child2.mSum = new int [flowshop.machines];
             for (int m = 0; m<flowshop.machines; m++){
                child1.mSum[m] = node.mSum[m] - flowshop.operations[m][job];
                child2.mSum[m] = node.mSum[m] - flowshop.operations[m][job];
             }
-
             //set up c1 and c2 for Forward child
             child1.c1 = new int [flowshop.machines];
+            child1.c2 = new int [flowshop.machines];
             std::memcpy(child1.c2, node.c2, sizeof(int)*flowshop.machines); //can rely on parent c2
             child1.c1[0] = node.c1[0] + flowshop.operations[0][job];
 
             //set up c1 and c2 for Backward child
             child2.c2 = new int [flowshop.machines];
+            child2.c1 = new int [flowshop.machines];
             std::memcpy(child2.c1, node.c1, sizeof(int)*flowshop.machines); //can rely on parent c2
             child2.c2[flowshop.machines-1] = node.c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
-
-            // machine 0 bound for Forward child
+            // machine 1 bound for Forward child
             if (child1.s2.empty()){
                c1bounds.push_back(child1.mSum[0] + getMinQ(child1.left, flowshop, 0));
             } else {
                c1bounds.push_back(child1.mSum[0] + child1.c2[0]); 
             }
-
             // machine m bound for Backward child
             if (child2.s1.empty()){
                c1bounds.push_back(child2.mSum[flowshop.machines-1] + getMinQ(child2.left, flowshop, flowshop.machines-1));
@@ -257,10 +266,7 @@ void solve(FSPspace flowshop){
                } else {
                   c2bounds.push_back(bound + child2.c1[m]);
                }
-            }
-
-            // delete parent node
-            deleteNode(node);
+            } 
                
             // get max lb for Forward and Backward child
             child1.lb = *max_element(c1bounds.begin(), c1bounds.end());
@@ -268,30 +274,34 @@ void solve(FSPspace flowshop){
 
             // Select child with lesser LB and compare it with UB
             if (child1.lb < child2.lb){
-               deleteNode(child2);
+               // deleteNode(child2);
                if (child1.lb < ub){
                   newProblems.push_back(child1);
-               } else {deleteNode(child1);}
+               } else {
+                  // deleteNode(child1);
+                  }
             } else{
-               deleteNode(child1);
+               // deleteNode(child1);
                if (child2.lb < ub){
                   newProblems.push_back(child2);
-               } else {deleteNode(child2);}
+               } else {
+                  // deleteNode(child2);
+                  }
             } 
          }
+
 
          // sort the nodes in descenging lb order and append it to problem list
          sort(newProblems.begin(), newProblems.end(), compareNodes);
          std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
-
+        }
       } else { // if one node is left
       vector<int> candiate;
       candiate.assign(node.s1.begin(), node.s1.end());
-      candiate.push_back(node.left.back());
+      candiate.push_back(node.left.front());
       std::copy(node.s2.begin(), node.s2.end(), std::back_inserter(candiate));
       int makespan = calculateSequence(candiate, flowshop);
-      int job = node.left.back();
-      if (makespan < ub || ub == -1){
+      if (makespan < ub){
             ub = makespan;
             solution.assign(candiate.begin(), candiate.end());
             solution.push_back(node.left.back());
