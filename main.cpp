@@ -10,10 +10,18 @@
 #include <list>
 #include <string>
 #include <bits/stdc++.h>
+#include <tuple>
 #include <vector>
 #include <stack> 
 using namespace std::chrono; 
 using namespace std;
+
+struct JobLength{
+   int index;
+   int length;
+   JobLength(){
+   }
+};
 
 
 struct Node {
@@ -67,6 +75,71 @@ for (int m = flowshop.machines -2; m >= 0; m--){ //starting from the second to l
    return *max_element(bounds.begin(), bounds.end());
 }
 
+bool compareJobLengths(JobLength j1, JobLength j2){
+   return j1.length > j2.length;
+}
+
+int calculateSequence(vector<int> jobs, FSPspace flowshop){
+  int* completionTimes = new int [flowshop.machines];
+  for (int m = 0; m < flowshop.machines; m++){
+     completionTimes[m] = 0;
+  }
+   for (int j = 0; j < jobs.size(); j++){
+      int jobIndex = jobs[j];
+      completionTimes[0]+= flowshop.operations[0][jobIndex];
+         for (int m = 1; m<flowshop.machines; m++){
+            completionTimes[m] = max(completionTimes[m-1], completionTimes[m]) + flowshop.operations[m][jobIndex];
+   }
+   }
+   int result = completionTimes[flowshop.machines-1];
+   delete [] completionTimes;
+   return result;
+}
+
+tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled, FSPspace flowshop){
+   vector<int> partial;
+   vector<int> bestSequence;
+   bestSequence.assign(scheduled.begin(), scheduled.end());
+   bestSequence.insert(bestSequence.begin(), unscheduled);
+    int best = calculateSequence(bestSequence, flowshop);
+    for (int i = 1; i <= scheduled.size(); i++){
+       partial.assign(scheduled.begin(), scheduled.end());
+       partial.insert(partial.begin()+i, unscheduled);
+       int makespan = calculateSequence(partial, flowshop);
+       if (makespan < best){
+         best = makespan;
+         bestSequence.assign(partial.begin(), partial.end());
+       }
+    }
+    return make_tuple(bestSequence, best);
+}
+
+
+tuple<vector<int>, int> initilizeUpperBound(FSPspace flowshop){
+   vector<JobLength> jobLengths;
+   vector<int> schedule;
+   for (int j = 0; j< flowshop.jobs; j++){
+      JobLength jobLength;
+      jobLength.length = 0;
+      jobLength.index = j;
+      for (int m = 0; m<flowshop.machines; m++){
+         jobLength.length+=flowshop.operations[m][j];
+         }
+
+      jobLengths.push_back(jobLength);
+   }
+   sort(jobLengths.begin(), jobLengths.end(), compareJobLengths);
+   schedule.push_back(jobLengths.at(0).index);
+   int best;
+   for (int i = 1; i < flowshop.jobs; i++){
+      int newBest;
+      vector<int> seq;
+     tie(seq, newBest) = findBestSequence(schedule, jobLengths.at(i).index, flowshop);
+      schedule.assign(seq.begin(), seq.end());
+      best = newBest;
+   }
+   return make_tuple(schedule, best);
+}
 
 void solve(FSPspace flowshop){
 
@@ -75,8 +148,19 @@ void solve(FSPspace flowshop){
    auto boundingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
  
    //initialize problem
-   int ub = -1;
+
+   //calculate ub
+   int ub = 0;
    vector<int> solution;
+   auto upperBoundstart = high_resolution_clock::now();
+   tie(solution, ub) = initilizeUpperBound(flowshop);
+   auto upperBoundTime = duration_cast<microseconds>(high_resolution_clock::now() - upperBoundstart);
+   cout <<"UB seq: ";
+   for (int i = 0; i<solution.size(); i++) cout<<solution[i]<<" ";
+   cout <<"UB: " << ub <<"\n";
+
+
+
    stack<Node> problems;
    Node root;
    for (int i = 0; i < flowshop.jobs; i++) root.left.push_back(i);
@@ -155,9 +239,10 @@ void solve(FSPspace flowshop){
       auto stop = high_resolution_clock::now(); 
       auto duration = duration_cast<microseconds>(stop - start); 
   
-    cout << "Execution time: " << duration.count() << " microseconds" << endl; 
+      cout << "Execution time: " << duration.count() << " microseconds" << endl; 
       cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
       cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
+      cout << "Initial UB Bounding time: " << upperBoundTime.count() << " microseconds" << endl; 
       cout << "Optimal makespan: " << ub <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < solution.size(); i++) cout << solution[i] + 1 << " ";
          cout << "\n";
