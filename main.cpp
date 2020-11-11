@@ -183,7 +183,6 @@ void solve(FSPspace flowshop){
 
       // if there are more than 1 jobs left unscheduled and uper bound is known
       if (node.left.size() > 1){
-         if (ub != -1){
          auto boundStart = high_resolution_clock::now();
             int lb = bound(&flowshop, &node); //get lb
             boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundStart);
@@ -203,23 +202,6 @@ void solve(FSPspace flowshop){
               branchingTime +=duration_cast<microseconds>(high_resolution_clock::now() - branchStart);
             } 
             // else {cout<<"PRUNED\n";}
-         } else {
-            auto branchStart = high_resolution_clock::now(); 
-            for (int i =0; i < node.left.size(); i++){
-               Node child;
-               int newJob = node.left[i];
-               child.scheduled.assign(node.scheduled.begin(), node.scheduled.end());
-               child.scheduled.push_back(newJob); // schedule i'th element
-               child.left.assign(node.left.begin(), node.left.end()); // assign unscheduled jobs from parent
-               child.left.erase(child.left.begin()+i); // erase i'th element
-               child.completion.push_back(node.completion[0]+flowshop.operations[0][newJob]);
-               for (int m = 1; m < flowshop.machines; m++) child.completion.push_back(max(child.completion[m-1],node.completion[m]) +flowshop.operations[m][newJob]);
-               problems.push(child);            
-            }
-            branchingTime +=duration_cast<microseconds>(high_resolution_clock::now() - branchStart);
-
-         }
-
       } else { // if one node is left
       int makespan = 0;
       int job = node.left.back();
