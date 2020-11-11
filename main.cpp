@@ -41,7 +41,7 @@ struct FSPspace {
 };
 
 bool compareJobLengths(JobLength j1, JobLength j2){
-   return j1.length < j2.length;
+   return j1.length > j2.length;
 }
 
 int calculateSequence(vector<int> jobs, FSPspace flowshop){
