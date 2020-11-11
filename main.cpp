@@ -443,10 +443,10 @@ FSPspace parseFile(string fileName){
             }
             for (int j = 0; j<flowshop.jobs; j++){
                for (int f = 1; f <flowshop.machines; f++){
-                  flowshop.jobForwardSum[f][j] =  flowshop.jobForwardSum[f-1][j] + flowshop.operations[f-1][j];
+                  flowshop.jobForwardSum[f][j] = flowshop.jobForwardSum[f-1][j] + flowshop.operations[f-1][j];
                }
                for (int b = flowshop.machines-2; b>=0; b--){
-                  flowshop.jobForwardSum[b][j] =  flowshop.jobForwardSum[b+1][j] + flowshop.operations[b+1][j];
+                  flowshop.jobBackwardSum[b][j] = flowshop.jobBackwardSum[b+1][j] + flowshop.operations[b+1][j];
                }
             }
       
