@@ -42,27 +42,27 @@ struct FSPspace {
     return min(minimum, value);
    }
 
-int bound(FSPspace flowshop, Node node){
+int bound(FSPspace *flowshop, Node *node){
    vector<int> bounds;
 
 //special case for last machine. no esitmations to add to the bound.
-int* estimate = new int[node.left.size()];
-int last = flowshop.machines -1;
-int bound = node.completion[last];
-for (int l = 0; l < node.left.size(); l++){
-   int j = node.left[l];
-   int op = flowshop.operations[last][j]; //add unsheculed job operations of that machine
+int* estimate = new int[node->left.size()];
+int last = flowshop->machines -1;
+int bound = node->completion[last];
+for (int l = 0; l < node->left.size(); l++){
+   int j = node->left[l];
+   int op = flowshop->operations[last][j]; //add unsheculed job operations of that machine
    bound += op;
    estimate[l]=(op);
 } 
 bounds.push_back(bound);
 
-for (int m = flowshop.machines -2; m >= 0; m--){ //starting from the second to last machine
+for (int m = flowshop->machines -2; m >= 0; m--){ //starting from the second to last machine
    int min = -1;
-   int bound = node.completion[m]; //bound base is the completion time 
-   for (int l = 0; l < node.left.size(); l++){ 
-      int j = node.left[l];
-      int op = flowshop.operations[m][j]; //get 
+   int bound = node->completion[m]; //bound base is the completion time 
+   for (int l = 0; l < node->left.size(); l++){ 
+      int j = node->left[l];
+      int op = flowshop->operations[m][j]; //get 
       int prev = estimate[l];
       bound += op; //add unsheculed job operations of that machine
       min = getMin(min, prev);
@@ -185,7 +185,7 @@ void solve(FSPspace flowshop){
       if (node.left.size() > 1){
          if (ub != -1){
          auto boundStart = high_resolution_clock::now();
-            int lb = bound(flowshop, node); //get lb
+            int lb = bound(&flowshop, &node); //get lb
             boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundStart);
             if (lb < ub){
                auto branchStart = high_resolution_clock::now(); 
