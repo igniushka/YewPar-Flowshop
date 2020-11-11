@@ -15,6 +15,15 @@
 using namespace std::chrono; 
 using namespace std;
 
+   auto start = high_resolution_clock::now(); 
+   auto branchingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto boundingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto makespanCountTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto otherBoundOperationsTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto boundCalculationTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto partialSeq0Time = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+
+
 struct JobLength{
    int index;
    int length;
@@ -131,19 +140,124 @@ bool compareNodes(Node node1, Node node2){
    return node1.lb > node2.lb;
 }
 
+Node boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
+    int job = node->left[j];
+            auto startBound=high_resolution_clock::now();
+            auto otherOPTime = high_resolution_clock::now();
+            Node child1; // (o1 j, o2)
+            Node child2; // (o1, j o2)
+            vector<int>c1bounds;
+            vector<int>c2bounds;
+   
+               
+            //set o1 and o2 on both nodes
+            child1.s1.assign(node->s1.begin(), node->s1.end());
+            child1.s2.assign(node->s2.begin(), node->s2.end()); //can rely on parent s2
+            child2.s1.assign(node->s1.begin(), node->s1.end());
+            child2.s2.assign(node->s2.begin(), node->s2.end());
+
+            
+
+            //set up left jobs
+            child1.left.assign(node->left.begin(), node->left.end());
+            child1.left.erase(child1.left.begin()+j);
+            child2.left.assign(child1.left.begin(), child1.left.end());
+
+
+            //insert jobs to both childred
+            child1.s1.push_back(job);
+            child2.s2.insert(child2.s2.begin(), job);
+
+
+            // set up sum(Pkj) on all machines. subtract the selected job from sum
+            child1.mSum = new int [flowshop->machines];
+            child2.mSum = new int [flowshop->machines];
+            otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
+
+            auto boundCalcStart = high_resolution_clock::now();
+
+            for (int m = 0; m<flowshop->machines; m++){
+               child1.mSum[m] = node->mSum[m] - flowshop->operations[m][job];
+               child2.mSum[m] = node->mSum[m] - flowshop->operations[m][job];
+            }
+            boundCalcStart = high_resolution_clock::now();
+            boundCalculationTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundCalcStart);
+
+            otherOPTime=  high_resolution_clock::now();
+
+            //set up c1 and c2 for Forward child
+            child1.c1 = new int [flowshop->machines];
+            child1.c2 = new int [flowshop->machines];
+            std::memcpy(child1.c2, node->c2, sizeof(int)*flowshop->machines); //can rely on parent c2
+            child1.c1[0] = node->c1[0] + flowshop->operations[0][job];
+
+            //set up c1 and c2 for Backward child
+            child2.c2 = new int [flowshop->machines];
+            child2.c1 = new int [flowshop->machines];
+            std::memcpy(child2.c1, node->c1, sizeof(int)*flowshop->machines); //can rely on parent c2
+            child2.c2[flowshop->machines-1] = node->c2[flowshop->machines-1] + flowshop->operations[flowshop->machines-1][job];
+
+            otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
+
+            boundCalcStart = high_resolution_clock::now();
+
+            // machine 1 bound for Forward child
+            if (child1.s2.empty()){
+               auto seq0start = high_resolution_clock::now();
+               c1bounds.push_back(child1.mSum[0] + getMinQ(&child1.left, flowshop, 0));
+               partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
+            } else {
+               c1bounds.push_back(child1.mSum[0] + child1.c2[0]); 
+            }
+            // machine m bound for Backward child
+            if (child2.s1.empty()){
+               auto seq0start = high_resolution_clock::now();
+               c1bounds.push_back(child2.mSum[flowshop->machines-1] + getMinQ(&child2.left, flowshop, flowshop->machines-1));
+               partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
+            } else {
+               c1bounds.push_back(child2.mSum[flowshop->machines-1] + child2.c1[flowshop->machines-1]); 
+            }
+
+            // machine 2 -> m bounds for Forward child
+            for (int m = 1; m < flowshop->machines; m++){
+               //update c1 with the new job times
+               child1.c1[m] = max(child1.c1[m-1], node->c1[m]) + flowshop->operations[m][job];
+               // init bound for machine m
+               int bound = child1.c1[m] + child1.mSum[m];
+               //if childs o2 is empty
+               if (child1.s2.empty()){
+                  c1bounds.push_back(bound + getMinQ(&child1.left, flowshop, m));
+               } else {
+                  c1bounds.push_back(bound + child1.c2[m]);
+               }
+            }
+
+            // machine m-1 -> 1 bounds for Backward child
+            for (int m = flowshop->machines-2; m >= 0; m--){
+               //update c2 with the new job times
+               child2.c2[m] = max(child2.c2[m+1], node->c2[m]) + flowshop->operations[m][job];
+               // init bound for machine m
+               int bound = child2.c2[m] + child2.mSum[m];
+               //if childs o1 is empty
+               if (child2.s1.empty()){
+                  c2bounds.push_back(bound + getMinR(&child2.left, flowshop, m));
+               } else {
+                  c2bounds.push_back(bound + child2.c1[m]);
+               }
+            } 
+
+                     // get max lb for Forward and Backward child
+            child1.lb = *max_element(c1bounds.begin(), c1bounds.end());
+            child2.lb = *max_element(c2bounds.begin(), c2bounds.end());
+            boundCalculationTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundCalcStart);
+            boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - startBound);
+
+
+}
 
 //RECURSIVE SOLUTION HERE
 void solve(FSPspace flowshop){
-   auto start = high_resolution_clock::now(); 
-   auto branchingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto boundingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto makespanCountTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto otherBoundOperationsTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto boundCalculationTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto partialSeq0Time = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
 
-
- 
    //initialize problem
    int ub;
    vector<int> solution;
@@ -194,145 +308,15 @@ void solve(FSPspace flowshop){
       if (node.left.size() > 1){
         if(node.lb < ub){
             for (int j = 0; j<node.left.size(); j++){
-            int job = node.left[j];
-            auto startBound=high_resolution_clock::now();
-            auto otherOPTime = high_resolution_clock::now();
-            Node child1; // (o1 j, o2)
-            Node child2; // (o1, j o2)
-            vector<int>c1bounds;
-            vector<int>c2bounds;
-
+               Node child = boundAndCreateNode( &node, &flowshop, j);
+               if (child.lb < ub){
+                  newProblems.push_back(child);
+               } 
             
-            //set o1 and o2 on both nodes
-            child1.s1.assign(node.s1.begin(), node.s1.end());
-            child1.s2.assign(node.s2.begin(), node.s2.end()); //can rely on parent s2
-            child2.s1.assign(node.s1.begin(), node.s1.end());
-            child2.s2.assign(node.s2.begin(), node.s2.end());
-
-            
-
-            //set up left jobs
-            child1.left.assign(node.left.begin(), node.left.end());
-            child1.left.erase(child1.left.begin()+j);
-            child2.left.assign(child1.left.begin(), child1.left.end());
-
-
-            //insert jobs to both childred
-            child1.s1.push_back(job);
-            child2.s2.insert(child2.s2.begin(), job);
-
-            // set up sum(Pkj) on all machines. subtract the selected job from sum
-            child1.mSum = new int [flowshop.machines];
-            child2.mSum = new int [flowshop.machines];
-            otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
-
-            auto boundCalcStart = high_resolution_clock::now();
-
-            for (int m = 0; m<flowshop.machines; m++){
-               child1.mSum[m] = node.mSum[m] - flowshop.operations[m][job];
-               child2.mSum[m] = node.mSum[m] - flowshop.operations[m][job];
-            }
-            boundCalcStart = high_resolution_clock::now();
-            boundCalculationTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundCalcStart);
-
-            otherOPTime=  high_resolution_clock::now();
-
-            //set up c1 and c2 for Forward child
-            child1.c1 = new int [flowshop.machines];
-            child1.c2 = new int [flowshop.machines];
-            std::memcpy(child1.c2, node.c2, sizeof(int)*flowshop.machines); //can rely on parent c2
-            child1.c1[0] = node.c1[0] + flowshop.operations[0][job];
-
-            //set up c1 and c2 for Backward child
-            child2.c2 = new int [flowshop.machines];
-            child2.c1 = new int [flowshop.machines];
-            std::memcpy(child2.c1, node.c1, sizeof(int)*flowshop.machines); //can rely on parent c2
-            child2.c2[flowshop.machines-1] = node.c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
-
-            otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
-
-            boundCalcStart = high_resolution_clock::now();
-
-            // machine 1 bound for Forward child
-            if (child1.s2.empty()){
-               auto seq0start = high_resolution_clock::now();
-               c1bounds.push_back(child1.mSum[0] + getMinQ(&child1.left, &flowshop, 0));
-               partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
-            } else {
-               c1bounds.push_back(child1.mSum[0] + child1.c2[0]); 
-            }
-            // machine m bound for Backward child
-            if (child2.s1.empty()){
-               auto seq0start = high_resolution_clock::now();
-               c1bounds.push_back(child2.mSum[flowshop.machines-1] + getMinQ(&child2.left, &flowshop, flowshop.machines-1));
-               partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
-            } else {
-               c1bounds.push_back(child2.mSum[flowshop.machines-1] + child2.c1[flowshop.machines-1]); 
-            }
-
-            // machine 2 -> m bounds for Forward child
-            for (int m = 1; m < flowshop.machines; m++){
-               //update c1 with the new job times
-               child1.c1[m] = max(child1.c1[m-1], node.c1[m]) + flowshop.operations[m][job];
-               // init bound for machine m
-               int bound = child1.c1[m] + child1.mSum[m];
-               //if childs o2 is empty
-               if (child1.s2.empty()){
-                  c1bounds.push_back(bound + getMinQ(&child1.left, &flowshop, m));
-               } else {
-                  c1bounds.push_back(bound + child1.c2[m]);
-               }
-            }
-
-            // machine m-1 -> 1 bounds for Backward child
-            for (int m = flowshop.machines-2; m >= 0; m--){
-               //update c2 with the new job times
-               child2.c2[m] = max(child2.c2[m+1], node.c2[m]) + flowshop.operations[m][job];
-               // init bound for machine m
-               int bound = child2.c2[m] + child2.mSum[m];
-               //if childs o1 is empty
-               if (child2.s1.empty()){
-                  c2bounds.push_back(bound + getMinR(&child2.left, &flowshop, m));
-               } else {
-                  c2bounds.push_back(bound + child2.c1[m]);
-               }
-            } 
-               
-            // get max lb for Forward and Backward child
-            child1.lb = *max_element(c1bounds.begin(), c1bounds.end());
-            child2.lb = *max_element(c2bounds.begin(), c2bounds.end());
-
-
-            boundCalculationTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundCalcStart);
-
-
-            boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - startBound);
-
-
-            // Select child with lesser LB and compare it with UB
-            if (child1.lb < child2.lb){
-               // deleteNode(child2);
-               if (child1.lb < ub){
-                  newProblems.push_back(child1);
-               } else {
-                  // deleteNode(child1);
-                  }
-            } else{
-               // deleteNode(child1);
-               if (child2.lb < ub){
-                  newProblems.push_back(child2);
-               } else {
-                  // deleteNode(child2);
-                  }
-            } 
          }
 
-
-         // sort the nodes in descenging lb order and append it to problem list
-         
+      // sort the nodes in descenging lb order and append it to problem list
         auto otherOPTime = high_resolution_clock::now();
-
-
          sort(newProblems.begin(), newProblems.end(), compareNodes);
 
          // for (auto p: newProblems){
@@ -340,12 +324,7 @@ void solve(FSPspace flowshop){
          // } cout <<"\n";
 
          std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
-
-  
-
          otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
-
-
         }
       } else { // if one node is left
       vector<int> candiate;
