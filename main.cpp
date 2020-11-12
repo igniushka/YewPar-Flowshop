@@ -168,10 +168,12 @@ void solve(FSPspace flowshop){
 
    problems.push(root);
    //solve problem recursively
-   int count = 0;
+   int nodesDecomposed = 0;
    while (problems.size() > 0){
       Node node = problems.top();
       problems.pop();
+
+      nodesDecomposed++;
       // cout<< "nodes processed: " << count <<"\n";
       // count++;
 
@@ -222,6 +224,7 @@ void solve(FSPspace flowshop){
       auto duration = duration_cast<microseconds>(stop - start); 
   
       cout << "Execution time: " << duration.count() << " microseconds" << endl; 
+      cout << "Nodes decomposed: " << nodesDecomposed << endl; 
       cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
       cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
       cout << "Initial UB Bounding time: " << upperBoundTime.count() << " microseconds" << endl; 
