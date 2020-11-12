@@ -136,11 +136,6 @@ bool compareNodes(Node *node1, Node *node2){
    return node1->lb > node2->lb;
 }
 
-Node * valgrindNodeTest(){
-   return new Node;
-}
-
-
 void deleteNode(Node* node){ 
    delete [] node->c1;
    delete [] node->c2;
@@ -152,8 +147,6 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             int job = node->left[j];
             auto startBound=high_resolution_clock::now();
             auto otherOPTime = high_resolution_clock::now();
-            Node *child1 = valgrindNodeTest(); // (o1 j, o2)
-            Node *child2 = valgrindNodeTest(); // (o1, j o2)
             vector<int>c1bounds;
             vector<int>c2bounds;
             int *newMsum = new int [flowshop->machines];
@@ -170,7 +163,6 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             for (int m = 0; m<flowshop->machines; m++){
                newMsum[m] = node->mSum[m] - flowshop->operations[m][job];
             }
-            boundCalcStart = high_resolution_clock::now();
             boundCalculationTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundCalcStart);
 
             otherOPTime=  high_resolution_clock::now();
@@ -211,13 +203,12 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             for (int m = 1; m < flowshop->machines; m++){
                //update c1 with the new job times
                child1c1[m] = max(child1c1[m-1], node->c1[m]) + flowshop->operations[m][job];
-               // init bound for machine m
-               int bound = child1c1[m] + newMsum[m];
+               
                //if childs o2 is empty
                if (node->s2.empty()){
-                  c1bounds.push_back(bound + getMinQ(&left, flowshop, m));
+                  c1bounds.push_back(child1c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
                } else {
-                  c1bounds.push_back(bound + node->c2[m]);
+                  c1bounds.push_back(child1c1[m] + newMsum[m] + node->c2[m]);
                }
             }
 
@@ -225,13 +216,11 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             for (int m = flowshop->machines-2; m >= 0; m--){
                //update c2 with the new job times
                child2c2[m] = max(child2c2[m+1], node->c2[m]) + flowshop->operations[m][job];
-               // init bound for machine m
-               int bound = child2c2[m] + newMsum[m];
                //if childs o1 is empty
                if (node->s1.empty()){
-                  c2bounds.push_back(bound + getMinR(&left, flowshop, m));
+                  c2bounds.push_back(child2c2[m] + newMsum[m] + getMinR(&left, flowshop, m));
                } else {
-                  c2bounds.push_back(bound + node->c1[m]);
+                  c2bounds.push_back(child2c2[m] + newMsum[m] + node->c1[m]);
                }
             } 
             
@@ -244,12 +233,11 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
    if(lb1 >= ub && lb2 >= ub){
       delete [] newMsum;
       delete [] child1c1;
-      delete(child1);
       delete [] child2c2;
-      delete(child2);
       return NULL;
    } else if(lb1 < lb2){
-         child1->s2.assign(node->s2.begin(), node->s2.end());
+         Node* child1 = new Node;
+         child1->s2 = node->s2;
          child1->s1 = node->s1;
          child1->s1.push_back(job);
          child1->c1=child1c1;
@@ -259,10 +247,10 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
          child1->left = left;
          child1->lb =lb1;
          delete [] child2c2;
-         delete child2;
          return child1;
    } else {
-      child2->s1.assign(node->s1.begin(), node->s1.end());
+      Node* child2 = new Node;
+      child2->s1 = node->s1;
       child2->s2 = node->s2;
       child2->s2.insert(child2->s2.begin(), job);
       child2->c2 = child2c2;
@@ -272,7 +260,6 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
       child2->left = left;
       child2->lb = lb2;
       delete [] child1c1;
-      delete child1;
       return child2;
    }
 }
