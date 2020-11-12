@@ -24,6 +24,7 @@ using namespace std;
    int nodesProcessed = 0;
    int seq0 = 0;
    int ub = 999999;
+  
 
 struct JobLength{
    int index;
@@ -203,7 +204,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             for (int m = 1; m < flowshop->machines; m++){
                //update c1 with the new job times
                child1c1[m] = max(child1c1[m-1], node->c1[m]) + flowshop->operations[m][job];
-               
+
                //if childs o2 is empty
                if (node->s2.empty()){
                   c1bounds.push_back(child1c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
@@ -267,6 +268,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
 
 //RECURSIVE SOLUTION HERE
 void solve(FSPspace* flowshop){
+   int nodesDecomposed = 0;
 
    //initialize problem
    vector<int> solution;
@@ -302,10 +304,9 @@ void solve(FSPspace* flowshop){
 
    problems.push_back(root);
    //solve problem recursively
-   int count = 0;
    while (problems.size() > 0){
-      count ++;
-   //  cout<<count<<"\n";
+      nodesDecomposed++;
+
       Node* node = problems.back();
       problems.pop_back();
 
@@ -353,7 +354,8 @@ void solve(FSPspace* flowshop){
       auto stop = high_resolution_clock::now(); 
       auto duration = duration_cast<microseconds>(stop - start); 
   
-      cout << "Execution time: " << duration.count() << " microseconds" << endl; 
+      cout << "Execution time: " << duration.count() << " microseconds" << endl;
+      cout << "Nodes decomposed: " << nodesDecomposed << endl; 
       cout << "Makespan counting time:" <<makespanCountTime.count() << " microseconds" << endl; 
       cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
       cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
