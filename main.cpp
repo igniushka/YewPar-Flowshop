@@ -157,20 +157,14 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             vector<int>c1bounds;
             vector<int>c2bounds;
             int *newMsum = new int [flowshop->machines];
-           
-            //set o1 and o2 on both nodes
-            child1->s1.assign(node->s1.begin(), node->s1.end());
-            child2->s2.assign(node->s2.begin(), node->s2.end());
+            // int *child1c1 = new int [flowshop->machines];
+            // int *child2c2 = new int [flowshop->machines];
 
             //set up left jobs
-            child1->left.assign(node->left.begin(), node->left.end());
-            child1->left.erase(child1->left.begin()+j);
-            child2->left.assign(child1->left.begin(), child1->left.end());
+            vector<int>left = node->left;
+            left.erase(left.begin()+j);
 
-
-            //insert jobs to both childred
-            child1->s1.push_back(job);
-            child2->s2.insert(child2->s2.begin(), job);
+ 
 
 
             // set up sum(Pkj) on all machines. subtract the selected job from sum
@@ -201,7 +195,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             // machine 1 bound for Forward child
             if (node->s2.empty()){
                auto seq0start = high_resolution_clock::now();
-               c1bounds.push_back(newMsum[0] + getMinQ(&child1->left, flowshop, 0));
+               c1bounds.push_back(newMsum[0] + getMinQ(&left, flowshop, 0));
                partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
             } else {
                c1bounds.push_back(newMsum[0] + node->c2[0]); 
@@ -209,7 +203,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             // machine m bound for Backward child
             if (node->s1.empty()){
                auto seq0start = high_resolution_clock::now();
-               c2bounds.push_back(newMsum[flowshop->machines-1] + getMinQ(&child2->left, flowshop, flowshop->machines-1));
+               c2bounds.push_back(newMsum[flowshop->machines-1] + getMinQ(&left, flowshop, flowshop->machines-1));
                partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
             } else {
                c2bounds.push_back(newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]); 
@@ -223,7 +217,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                int bound = child1->c1[m] + newMsum[m];
                //if childs o2 is empty
                if (node->s2.empty()){
-                  c1bounds.push_back(bound + getMinQ(&child1->left, flowshop, m));
+                  c1bounds.push_back(bound + getMinQ(&left, flowshop, m));
                } else {
                   c1bounds.push_back(bound + node->c2[m]);
                }
@@ -237,7 +231,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                int bound = child2->c2[m] + newMsum[m];
                //if childs o1 is empty
                if (node->s1.empty()){
-                  c2bounds.push_back(bound + getMinR(&child2->left, flowshop, m));
+                  c2bounds.push_back(bound + getMinR(&left, flowshop, m));
                } else {
                   c2bounds.push_back(bound + node->c1[m]);
                }
@@ -258,17 +252,23 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
       return NULL;
    } else if(child1->lb < child2->lb){
          child1->s2.assign(node->s2.begin(), node->s2.end());
+         child1->s1 = node->s1;
+         child1->s1.push_back(job);
          child1->c2 = new int [flowshop->machines];
          std::memcpy(child1->c2, node->c2, sizeof(int)*flowshop->machines); //can rely on parent c1
          child1->mSum = newMsum;
+         child1->left = left;
          delete [] child2->c2;
          delete child2;
          return child1;
    } else {
       child2->s1.assign(node->s1.begin(), node->s1.end());
+      child2->s2 = node->s2;
+      child2->s2.insert(child2->s2.begin(), job);
       child2->c1 = new int [flowshop->machines];
       std::memcpy(child2->c1, node->c1, sizeof(int)*flowshop->machines); //can rely on parent c2
       child2->mSum = newMsum;
+      child2->left = left;
       delete [] child1->c1;
       delete child1;
       return child2;
