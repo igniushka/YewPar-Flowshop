@@ -158,13 +158,9 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             vector<int>c2bounds;
             int *newMsum = new int [flowshop->machines];
    
-
             //set up left jobs
             vector<int>left = node->left;
             left.erase(left.begin()+j);
-
- 
-
 
             // set up sum(Pkj) on all machines. subtract the selected job from sum
             otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
@@ -238,21 +234,21 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                   c2bounds.push_back(bound + node->c1[m]);
                }
             } 
-
+            
             // get max lb for Forward and Backward child
-            child1->lb = *max_element(c1bounds.begin(), c1bounds.end());
-            child2->lb = *max_element(c2bounds.begin(), c2bounds.end());
+            int lb1 = *max_element(c1bounds.begin(), c1bounds.end());
+            int lb2 = *max_element(c2bounds.begin(), c2bounds.end());
             boundCalculationTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundCalcStart);
             boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - startBound);
 
-   if(child1->lb >= ub && child2->lb >= ub){
+   if(lb1 >= ub && lb2 >= ub){
       delete [] newMsum;
       delete [] child1c1;
       delete(child1);
       delete [] child2c2;
       delete(child2);
       return NULL;
-   } else if(child1->lb < child2->lb){
+   } else if(lb1 < lb2){
          child1->s2.assign(node->s2.begin(), node->s2.end());
          child1->s1 = node->s1;
          child1->s1.push_back(job);
@@ -261,6 +257,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
          std::memcpy(child1->c2, node->c2, sizeof(int)*flowshop->machines); //can rely on parent c1
          child1->mSum = newMsum;
          child1->left = left;
+         child1->lb =lb1;
          delete [] child2c2;
          delete child2;
          return child1;
@@ -273,6 +270,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
       std::memcpy(child2->c1, node->c1, sizeof(int)*flowshop->machines); //can rely on parent c2
       child2->mSum = newMsum;
       child2->left = left;
+      child2->lb = lb2;
       delete [] child1c1;
       delete child1;
       return child2;
