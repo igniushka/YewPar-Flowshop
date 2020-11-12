@@ -157,8 +157,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             vector<int>c1bounds;
             vector<int>c2bounds;
             int *newMsum = new int [flowshop->machines];
-            // int *child1c1 = new int [flowshop->machines];
-            // int *child2c2 = new int [flowshop->machines];
+   
 
             //set up left jobs
             vector<int>left = node->left;
@@ -180,13 +179,16 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
 
             otherOPTime=  high_resolution_clock::now();
 
+
+            //init child1 c1 and child2 c2
+
             //set up c1 and c2 for Forward child
-            child1->c1 = new int [flowshop->machines];
-            child1->c1[0] = node->c1[0] + flowshop->operations[0][job];
+            int *child1c1 = new int [flowshop->machines];
+            child1c1[0] = node->c1[0] + flowshop->operations[0][job];
 
             //set up c1 and c2 for Backward child
-            child2->c2 = new int [flowshop->machines];
-            child2->c2[flowshop->machines-1] = node->c2[flowshop->machines-1] + flowshop->operations[flowshop->machines-1][job];
+            int *child2c2 = new int [flowshop->machines];
+            child2c2[flowshop->machines-1] = node->c2[flowshop->machines-1] + flowshop->operations[flowshop->machines-1][job];
 
             otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
 
@@ -212,9 +214,9 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             // machine 2 -> m bounds for Forward child
             for (int m = 1; m < flowshop->machines; m++){
                //update c1 with the new job times
-               child1->c1[m] = max(child1->c1[m-1], node->c1[m]) + flowshop->operations[m][job];
+               child1c1[m] = max(child1c1[m-1], node->c1[m]) + flowshop->operations[m][job];
                // init bound for machine m
-               int bound = child1->c1[m] + newMsum[m];
+               int bound = child1c1[m] + newMsum[m];
                //if childs o2 is empty
                if (node->s2.empty()){
                   c1bounds.push_back(bound + getMinQ(&left, flowshop, m));
@@ -226,9 +228,9 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             // machine m-1 -> 1 bounds for Backward child
             for (int m = flowshop->machines-2; m >= 0; m--){
                //update c2 with the new job times
-               child2->c2[m] = max(child2->c2[m+1], node->c2[m]) + flowshop->operations[m][job];
+               child2c2[m] = max(child2c2[m+1], node->c2[m]) + flowshop->operations[m][job];
                // init bound for machine m
-               int bound = child2->c2[m] + newMsum[m];
+               int bound = child2c2[m] + newMsum[m];
                //if childs o1 is empty
                if (node->s1.empty()){
                   c2bounds.push_back(bound + getMinR(&left, flowshop, m));
@@ -245,31 +247,33 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
 
    if(child1->lb >= ub && child2->lb >= ub){
       delete [] newMsum;
-      delete [] child1->c1;
+      delete [] child1c1;
       delete(child1);
-      delete [] child2->c2;
+      delete [] child2c2;
       delete(child2);
       return NULL;
    } else if(child1->lb < child2->lb){
          child1->s2.assign(node->s2.begin(), node->s2.end());
          child1->s1 = node->s1;
          child1->s1.push_back(job);
+         child1->c1=child1c1;
          child1->c2 = new int [flowshop->machines];
          std::memcpy(child1->c2, node->c2, sizeof(int)*flowshop->machines); //can rely on parent c1
          child1->mSum = newMsum;
          child1->left = left;
-         delete [] child2->c2;
+         delete [] child2c2;
          delete child2;
          return child1;
    } else {
       child2->s1.assign(node->s1.begin(), node->s1.end());
       child2->s2 = node->s2;
       child2->s2.insert(child2->s2.begin(), job);
+      child2->c2 = child2c2;
       child2->c1 = new int [flowshop->machines];
       std::memcpy(child2->c1, node->c1, sizeof(int)*flowshop->machines); //can rely on parent c2
       child2->mSum = newMsum;
       child2->left = left;
-      delete [] child1->c1;
+      delete [] child1c1;
       delete child1;
       return child2;
    }
