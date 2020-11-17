@@ -4,4 +4,4 @@ add_hpx_executable(flowshop
   SOURCES main.cpp
   COMPILE_FLAGS ""
   DEPENDENCIES YewPar_lib)
-endif(YEWPAR_BUILD_BNB_APPS_MAXCLIQUE)
+endif(YEWPAR_BUILD_BNB_APPS_FLOWSHOP)
