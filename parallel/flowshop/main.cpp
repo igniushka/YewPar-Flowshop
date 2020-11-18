@@ -23,6 +23,8 @@
 #include "skeletons/Ordered.hpp"
 #include "skeletons/Budget.hpp"
 #include "skeletons/StackStealing.hpp"
+#include <boost/serialization/access.hpp>
+
 using namespace std::chrono; 
 using namespace std;
 
@@ -44,10 +46,6 @@ struct JobLength{
    }
 };
 
-struct PartialNode{
-   int lb;
-};
-
 struct Node {
    vector<int> left;
    vector<int> s1;
@@ -59,6 +57,45 @@ struct Node {
    int depth;
 };
 
+struct FSPSolution {
+  std::vector<int> sequence;
+  int makespan;
+
+  template <class Archive>
+  void serialize(Archive & ar, const unsigned int version) {
+    ar & sequence;
+    ar & makespan;
+  }
+};
+
+struct FSPNode {
+  friend class boost::serialization::access;
+  FSPSolution sol;
+   vector<int> left;
+   vector<int> s1;
+   vector<int> s2;
+   int lb;
+   int depth;
+   int* c1;
+   int* c2;
+   int* mSum;
+      // array<int, M> c1;
+   // array<int, M> c2;
+   // array<int, M> mSum;
+
+  int getObj() const {
+    return lb;
+  }
+
+  template <class Archive>
+  void serialize(Archive & ar, const unsigned int version) {
+    ar & sol;
+    ar & left;
+    ar & s1;
+    ar & s2;
+  }
+};
+
 struct FSPspace {
   int machines;
   int jobs;
@@ -67,12 +104,11 @@ struct FSPspace {
   int** jobBackwardSum;
 };
 
-
 bool compareJobLengths(JobLength j1, JobLength j2){
    return j1.length > j2.length;
 }
 
-int calculateSequence(vector<int>* jobs, FSPspace* flowshop){
+int calculateSequence(vector<int>* jobs, const FSPspace* flowshop){
   int* completionTimes = new int [flowshop->machines];
   for (int m = 0; m < flowshop->machines; m++){
      completionTimes[m] = 0;
@@ -107,7 +143,9 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
 }
 
 
-tuple<vector<int>, int> initilizeUpperBound(FSPspace* flowshop){
+// tuple<vector<int>, int> initilizeUpperBound(FSPspace* flowshop){
+   FSPSolution initilizeUpperBound(FSPspace* flowshop){
+
    vector<JobLength> jobLengths;
    vector<int> schedule;
    for (int j = 0; j< flowshop->jobs; j++){
@@ -129,7 +167,8 @@ tuple<vector<int>, int> initilizeUpperBound(FSPspace* flowshop){
       schedule.assign(seq.begin(), seq.end());
       best = newBest;
    }
-   return make_tuple(schedule, best);
+   // return make_tuple(schedule, best);
+   return FSPSolution{schedule, best};
 }
 
 int getMinQ(vector<int> *jobsLeft, FSPspace *flowshop, int machine){
@@ -159,7 +198,7 @@ void deleteNode(Node* node){
    delete(node);
 }
 
-Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
+FSPNode* boundAndCreateNode(FSPNode *node, FSPspace *flowshop, int j){
             int job = node->left[j];
             int depth = node->depth + 1;
             auto startBound=high_resolution_clock::now();
@@ -198,8 +237,8 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            if (lb < ub){
-               Node* child = new Node;
+            // if (lb < ub){
+               FSPNode* child = new FSPNode;
                child->s2 = node->s2;
                child->s1 = node->s1;
                child->s1.push_back(job);
@@ -211,11 +250,11 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                child->lb =lb;
                child->depth = depth;
                return child;
-            } else {
-               delete [] newMsum;
-               delete [] c1;
-               return NULL;
-            }
+            // } else {
+            //    delete [] newMsum;
+            //    delete [] c1;
+            //    return NULL;
+            // }
 
             }else{  // (o1, j o2)
                int *c2 = new int [flowshop->machines];
@@ -241,8 +280,8 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            if (lb < ub){
-               Node* child = new Node;
+            // if (lb < ub){
+               FSPNode* child = new FSPNode;
                child->s1 = node->s1;
                child->s2 = node->s2;
                child->s2.insert(child->s2.begin(), job);
@@ -254,117 +293,151 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                child->lb = lb;
                child->depth = depth;
                return child; 
-            } else {
-               delete [] newMsum;
-               delete [] c2;
-               return NULL;
-            }
+            // } else {
+            //    delete [] newMsum;
+            //    delete [] c2;
+            //    return NULL;
+            // }
 
          } 
 }
 
 
+
+
+// template <unsigned numItems>
+struct GenNode : YewPar::NodeGenerator<FSPNode, FSPspace> {
+  std::vector<int> items;
+  int pos;
+
+  std::reference_wrapper<const FSPspace > space;
+  std::reference_wrapper<const FSPNode> n;
+
+  GenNode (const FSPspace & space, const FSPNode & n) :
+      pos(0), space(std::cref(space)), n(std::cref(n)) {
+    this->numChildren = n.left.size();
+  }
+
+  FSPNode next() override {
+
+auto parent = n.get();
+auto flowshop = space.get();
+   FSPNode *child = boundAndCreateNode(&parent, &flowshop, pos);
+    ++pos;
+    return *child;
+  }
+};
+
+int upperBound(const FSPspace & space, const FSPNode & node){
+   vector<int> candidate;
+   candidate.assign(node.s1.begin(), node.s2.end());
+   std::copy(node.s2.begin(), node.s2.end(), std::back_inserter(candidate));
+   return calculateSequence(&candidate, &space);
+}
+
+typedef func<decltype(&upperBound), &upperBound> upperBound_func;
+
 //RECURSIVE SOLUTION HERE
-void solve(FSPspace* flowshop){
-   int nodesDecomposed = 0;
+// void solve(FSPspace* flowshop){
+//    int nodesDecomposed = 0;
 
-   //initialize problem
-   vector<int> solution;
-   auto upperBoundstart = high_resolution_clock::now();
-    tie(solution, ub) = initilizeUpperBound(flowshop);
-   auto upperBoundTime = duration_cast<microseconds>(high_resolution_clock::now() - upperBoundstart);
+//    //initialize problem
+//    vector<int> solution;
+//    auto upperBoundstart = high_resolution_clock::now();
+//    //  tie(solution, ub) = initilizeUpperBound(flowshop);
+//    auto upperBoundTime = duration_cast<microseconds>(high_resolution_clock::now() - upperBoundstart);
 
-   cout <<"UB seq: ";
-   for (int i = 0; i<solution.size(); i++) cout<<solution[i]<<" ";
-   cout <<"UB: " << ub <<"\n";
+//    cout <<"UB seq: ";
+//    for (int i = 0; i<solution.size(); i++) cout<<solution[i]<<" ";
+//    cout <<"UB: " << ub <<"\n";
 
-   vector<Node*> problems;
-   Node *root = new Node;
-   root->c1 = new int [flowshop->machines];
-   root->c2 = new int [flowshop->machines];
-   root->mSum = new int [flowshop->machines];
-   root->lb = 0; //lb for root doesnt matter as long as it's less than UB
-   root->depth = 0;
+//    vector<Node*> problems;
+//    Node *root = new Node;
+//    root->c1 = new int [flowshop->machines];
+//    root->c2 = new int [flowshop->machines];
+//    root->mSum = new int [flowshop->machines];
+//    root->lb = 0; //lb for root doesnt matter as long as it's less than UB
+//    root->depth = 0;
 
-   //set o1, o2 makespans to 0 and initialize sum(Pkj) to 0
-   for (int m = 0; m < flowshop->machines; m++){
-      root->mSum [m] = 0;
-      root->c1 [m] = 0;
-      root->c2 [m] = 0;
-   }
+//    //set o1, o2 makespans to 0 and initialize sum(Pkj) to 0
+//    for (int m = 0; m < flowshop->machines; m++){
+//       root->mSum [m] = 0;
+//       root->c1 [m] = 0;
+//       root->c2 [m] = 0;
+//    }
 
    //set all sum(Pkj) unsheduled job sum times on all machines
-   for (int j = 0; j < flowshop->jobs; j++){ 
-      root->left.push_back(j);
-      for (int m = 0; m < flowshop->machines; m++){
-         root->mSum[m] += flowshop->operations[m][j];
-      }
-   } 
+   // for (int j = 0; j < flowshop->jobs; j++){ 
+   //    root->left.push_back(j);
+   //    for (int m = 0; m < flowshop->machines; m++){
+   //       root->mSum[m] += flowshop->operations[m][j];
+   //    }
+   // } 
 
-   problems.push_back(root);
-   //solve problem recursively
-   while (problems.size() > 0){
-      nodesDecomposed++;
+   // problems.push_back(root);
+   // //solve problem recursively
+   // while (problems.size() > 0){
+   //    nodesDecomposed++;
 
-      Node* node = problems.back();
-      problems.pop_back();
+   //    Node* node = problems.back();
+   //    problems.pop_back();
 
-      vector<Node*> newProblems;
+   //    vector<Node*> newProblems;
 
       // if there are more than 1 jobs left
-      if (node->left.size() > 1){
-        if(node->lb < ub){
-            for (int j = 0; j<node->left.size(); j++){
-               Node *child = boundAndCreateNode(node, flowshop, j);
-               if (child!=NULL){
-                  newProblems.push_back(child);
-               }else{
-                  delete(child);
-               }
-         }
+      // if (node->left.size() > 1){
+      //   if(node->lb < ub){
+      //       for (int j = 0; j<node->left.size(); j++){
+      //          Node *child = boundAndCreateNode(node, flowshop, j);
+      //          if (child!=NULL){
+      //             newProblems.push_back(child);
+      //          }else{
+      //             delete(child);
+      //          }
+      //    }
 
-      // sort the nodes in descenging lb order and append it to problem list
-        auto otherOPTime = high_resolution_clock::now();
-        if (!newProblems.empty()){
-         sort(newProblems.begin(), newProblems.end(), compareNodes);
-         std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
-        }
-         deleteNode(node);
-         otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
-        } else {
-           deleteNode(node);
-        }
-      } else { // if one node is left
-      vector<int> candiate;
-      candiate.assign(node->s1.begin(), node->s1.end());
-      candiate.push_back(node->left.front());
-      std::copy(node->s2.begin(), node->s2.end(), std::back_inserter(candiate));
-      auto upperBoundstart = high_resolution_clock::now();
-      int makespan = calculateSequence(&candiate, flowshop);
-      makespanCountTime+=duration_cast<microseconds>(high_resolution_clock::now() - upperBoundstart);
-      deleteNode(node);
-      if (makespan < ub){
-            ub = makespan;
-            solution.assign(candiate.begin(), candiate.end());
-            cout<<"\nNEW SOLUTION: "<<ub<<"\n";
-            }
-         } 
-      }
-      auto stop = high_resolution_clock::now(); 
-      auto duration = duration_cast<microseconds>(stop - start); 
+      // // sort the nodes in descenging lb order and append it to problem list
+      //   auto otherOPTime = high_resolution_clock::now();
+      //   if (!newProblems.empty()){
+      //    sort(newProblems.begin(), newProblems.end(), compareNodes);
+      //    std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
+      //   }
+      //    deleteNode(node);
+      //    otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
+      //   } else {
+      //      deleteNode(node);
+      //   }
+      // } else { // if one node is left
+      // vector<int> candiate;
+      // candiate.assign(node->s1.begin(), node->s1.end());
+      // candiate.push_back(node->left.front());
+      // std::copy(node->s2.begin(), node->s2.end(), std::back_inserter(candiate));
+      // auto upperBoundstart = high_resolution_clock::now();
+      // int makespan = calculateSequence(&candiate, flowshop);
+      // makespanCountTime+=duration_cast<microseconds>(high_resolution_clock::now() - upperBoundstart);
+      // deleteNode(node);
+      // if (makespan < ub){
+      //       ub = makespan;
+      //       solution.assign(candiate.begin(), candiate.end());
+      //       cout<<"\nNEW SOLUTION: "<<ub<<"\n";
+      //       }
+      //    } 
+      // }
+      // auto stop = high_resolution_clock::now(); 
+      // auto duration = duration_cast<microseconds>(stop - start); 
   
-      cout << "Execution time: " << duration.count() << " microseconds" << endl;
-      cout << "Nodes decomposed: " << nodesDecomposed << endl; 
-      cout << "Makespan counting time:" <<makespanCountTime.count() << " microseconds" << endl; 
-      cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
-      cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
-      cout << "Bounding calculation time: " << boundCalculationTime.count() << " microseconds" << endl; 
-      cout << "Bounding partial seq calculation time: " << partialSeq0Time.count() << " microseconds" << endl;       
-      cout << "Bounding other OP time: " << otherBoundOperationsTime.count() << " microseconds" << endl; 
-      cout << "Optimal makespan: " << ub <<"\n" << "Optimal job scheduling order: "; ;
-      for(int i =0; i < solution.size(); i++) cout << solution[i] + 1 << " ";
-         cout << "\n";
-   }
+   //    cout << "Execution time: " << duration.count() << " microseconds" << endl;
+   //    cout << "Nodes decomposed: " << nodesDecomposed << endl; 
+   //    cout << "Makespan counting time:" <<makespanCountTime.count() << " microseconds" << endl; 
+   //    cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
+   //    cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
+   //    cout << "Bounding calculation time: " << boundCalculationTime.count() << " microseconds" << endl; 
+   //    cout << "Bounding partial seq calculation time: " << partialSeq0Time.count() << " microseconds" << endl;       
+   //    cout << "Bounding other OP time: " << otherBoundOperationsTime.count() << " microseconds" << endl; 
+   //    cout << "Optimal makespan: " << ub <<"\n" << "Optimal job scheduling order: "; ;
+   //    for(int i =0; i < solution.size(); i++) cout << solution[i] + 1 << " ";
+   //       cout << "\n";
+   // }
 int invalidFormatError(string message){
    cout<<"input file has invalid format: "<<message<<"\n";
    exit(EXIT_FAILURE);
@@ -393,55 +466,55 @@ int* parseLine(string line, int expected){
 }
 
 
-FSPspace* parseFile(string fileName){
+FSPspace parseFile(string fileName){
    int* chunks;
    ifstream file;
    file.open(fileName);
-   FSPspace* flowshop = new FSPspace;
+   FSPspace flowshop;
    if (file){ 
       printf("file exists\n");
        if (file.is_open()){
          string line;
          getline(file, line);  // get the first line containing two values: number of jobs and number of machines
             chunks = parseLine(line, 2);
-            flowshop->jobs = chunks[0];
-            flowshop->machines = chunks[1];
+            flowshop.jobs = chunks[0];
+            flowshop.machines = chunks[1];
             delete[] chunks;
-            flowshop->operations = new int* [flowshop->machines];
-            flowshop->jobForwardSum = new int* [flowshop->machines];
-            flowshop->jobBackwardSum = new int* [flowshop->machines];
-            cout<< "jobs: " <<flowshop->jobs << " machines:" << flowshop->machines << "\n";
-            for (int m = 0; m < flowshop->machines; m++){
-                  flowshop->operations[m] = new int [flowshop->jobs];
-                  flowshop->jobForwardSum[m] = new int [flowshop->jobs];
-                  flowshop->jobBackwardSum[m] = new int [flowshop->jobs];
+            flowshop.operations = new int* [flowshop.machines];
+            flowshop.jobForwardSum = new int* [flowshop.machines];
+            flowshop.jobBackwardSum = new int* [flowshop.machines];
+            cout<< "jobs: " <<flowshop.jobs << " machines:" << flowshop.machines << "\n";
+            for (int m = 0; m < flowshop.machines; m++){
+                  flowshop.operations[m] = new int [flowshop.jobs];
+                  flowshop.jobForwardSum[m] = new int [flowshop.jobs];
+                  flowshop.jobBackwardSum[m] = new int [flowshop.jobs];
                   getline(file, line); 
-                  chunks = parseLine(line, flowshop->jobs);
-                  for (int j = 0; j< flowshop->jobs; j++){
-                     flowshop->operations[m][j] = chunks[j];
+                  chunks = parseLine(line, flowshop.jobs);
+                  for (int j = 0; j< flowshop.jobs; j++){
+                     flowshop.operations[m][j] = chunks[j];
                   }
                   delete[] chunks;
             }
 
             //set jobForwarsSum[0] and jobBackward[m-1] initial 0
-            for (int j = 0; j< flowshop->jobs; j++){
-               flowshop->jobForwardSum [0][j] = 0;
-               flowshop->jobBackwardSum[flowshop->machines-1][j] = 0;
+            for (int j = 0; j< flowshop.jobs; j++){
+               flowshop.jobForwardSum [0][j] = 0;
+               flowshop.jobBackwardSum[flowshop.machines-1][j] = 0;
             }
-            for (int j = 0; j<flowshop->jobs; j++){
-               for (int f = 1; f <flowshop->machines; f++){
-                  flowshop->jobForwardSum[f][j] = flowshop->jobForwardSum[f-1][j] + flowshop->operations[f-1][j];
+            for (int j = 0; j<flowshop.jobs; j++){
+               for (int f = 1; f <flowshop.machines; f++){
+                  flowshop.jobForwardSum[f][j] = flowshop.jobForwardSum[f-1][j] + flowshop.operations[f-1][j];
                }
-               for (int b = flowshop->machines-2; b>=0; b--){
-                  flowshop->jobBackwardSum[b][j] = flowshop->jobBackwardSum[b+1][j] + flowshop->operations[b+1][j];
+               for (int b = flowshop.machines-2; b>=0; b--){
+                  flowshop.jobBackwardSum[b][j] = flowshop.jobBackwardSum[b+1][j] + flowshop.operations[b+1][j];
                }
             }
       
 
 
-            for (int m = 0; m < flowshop->machines; m++){
-               for (int j = 0;  j < flowshop->jobs; j++){
-                  cout<<  flowshop->operations[m] [j] << " ";
+            for (int m = 0; m < flowshop.machines; m++){
+               for (int j = 0;  j < flowshop.jobs; j++){
+                  cout<<  flowshop.operations[m] [j] << " ";
             }
                cout<<"\n";
             }
@@ -459,21 +532,56 @@ FSPspace* parseFile(string fileName){
 
 int hpx_main(boost::program_options::variables_map & opts) {
   auto inputFile = opts["input-file"].as<std::string>();
+   auto skeletonType = opts["skeleton"].as<std::string>();
+   FSPspace space = parseFile(inputFile);
+   FSPNode root;
+   root.sol = initilizeUpperBound(&space);
+   root.c1 = new int [space.machines];
+   root.c2 = new int [space.machines];
+   root.mSum = new int [space.machines];
+   root.lb = 0; //lb for root doesnt matter as long as it's less than UB
+   root.depth = 0;
 
-      FSPspace* flowshop = parseFile(inputFile);
-      solve(flowshop);
-    for (int m = 0; m<flowshop->machines; m++){
-        delete[]  (flowshop->jobBackwardSum[m]);
-        delete[] (flowshop->jobForwardSum[m]);
-        delete[] (flowshop->operations[m]);
+   //set o1, o2 makespans to 0 and initialize sum(Pkj) to 0
+   for (int m = 0; m < space.machines; m++){
+      root.mSum [m] = 0;
+      root.c1 [m] = 0;
+      root.c2 [m] = 0;
+   }
+
+   //set all sum(Pkj) unsheduled job sum times on all machines
+   for (int j = 0; j < space.jobs; j++){ 
+      root.left.push_back(j);
+      for (int m = 0; m < space.machines; m++){
+         root.mSum[m] += space.operations[m][j];
       }
-    delete[]  (flowshop->jobBackwardSum);
-    delete[] (flowshop->jobForwardSum);
-    delete[] (flowshop->operations);
-    delete(flowshop);
+   } 
+   auto sol = root;
 
-}
+     if (skeletonType == "seq") {
+      YewPar::Skeletons::API::Params<int> searchParameters;
+      sol = YewPar::Skeletons::Seq<GenNode,
+                                   YewPar::Skeletons::API::Decision,
+                                   YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                   YewPar::Skeletons::API::PruneLevel>
+            ::search(space, root);
+    
+  }
 
+         cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
+      for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
+         cout << "\n";
+
+               // solve(flowshop);
+    for (int m = 0; m<space.machines; m++){
+        delete[]  (space.jobBackwardSum[m]);
+        delete[] (space.jobForwardSum[m]);
+        delete[] (space.operations[m]);
+      }
+    delete[]  (space.jobBackwardSum);
+    delete[] (space.jobForwardSum);
+    delete[] (space.operations);
+   }
 
 
 int main(int argc, char* argv[]) {
