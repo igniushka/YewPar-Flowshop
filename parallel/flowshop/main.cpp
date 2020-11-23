@@ -60,7 +60,7 @@ struct Node {
 
 struct FSPSolution {
   std::vector<int> sequence;
-  int makespan;
+  unsigned makespan;
 
   template <class Archive>
   void serialize(Archive & ar, const unsigned int version) {
@@ -75,7 +75,6 @@ struct FSPNode {
    vector<int> left;
    vector<int> s1;
    vector<int> s2;
-   int ub;
    int lb;
    int depth;
    int* c1;
@@ -86,7 +85,7 @@ struct FSPNode {
    // array<int, M> mSum;
 
   int getObj() const {
-   return ub;
+   return sol.makespan;
   }
 
   template <class Archive>
@@ -110,7 +109,7 @@ bool compareJobLengths(JobLength j1, JobLength j2){
    return j1.length > j2.length;
 }
 
-int calculateSequence(vector<int>* jobs, const FSPspace* flowshop){
+unsigned calculateSequence(vector<int>* jobs, const FSPspace* flowshop){
   int* completionTimes = new int [flowshop->machines];
   for (int m = 0; m < flowshop->machines; m++){
      completionTimes[m] = 0;
@@ -161,7 +160,7 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
    }
    sort(jobLengths.begin(), jobLengths.end(), compareJobLengths);
    schedule.push_back(jobLengths.at(0).index);
-   int best;
+   unsigned best;
    for (int i = 1; i < flowshop->jobs; i++){
       int newBest;
       vector<int> seq;
@@ -200,11 +199,11 @@ void deleteNode(Node* node){
    delete(node);
 }
 
-int upperBound(const FSPspace & space, const FSPNode & node){
+FSPSolution makeSolution(const FSPspace & space, const FSPNode & node){
    vector<int> candidate;
    candidate.assign(node.s1.begin(), node.s2.end());
    std::copy(node.s2.begin(), node.s2.end(), std::back_inserter(candidate));
-   return calculateSequence(&candidate, &space);
+   return FSPSolution{candidate, calculateSequence(&candidate, &space)};
 }
 
 FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
@@ -259,9 +258,9 @@ FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
                child.lb =lb;
                child.depth = depth;
                if(child.left.size() == 0){
-                   child.ub = upperBound(flowshop, child);
+                   child.sol = makeSolution(flowshop, child);
                } else {
-                  child.ub = INT_MAX;
+                  child.sol.makespan = INT_MAX;
                }
                return child;
             // } else {
@@ -307,9 +306,9 @@ FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
                child.lb = lb;
                child.depth = depth;
                if(child.left.size() == 0){
-                   child.ub = upperBound(flowshop, child);
+                   child.sol = makeSolution(flowshop, child);
                } else {
-                  child.ub = INT_MAX;
+                  child.sol.makespan = INT_MAX;
                }
                return child; 
             // } else {
@@ -344,7 +343,7 @@ auto parent = n.get();
 auto flowshop = space.get();
    FSPNode child = boundAndCreateNode(parent, flowshop, pos);
     ++pos;
-    cout<<"RETURNING CHILD\n";
+    cout<<"RETURNING CHILD UB: "<< child.sol.makespan << " LB: "<< child.lb<<"\n";
     return child;
   }
 };
@@ -436,6 +435,7 @@ FSPspace parseFile(string fileName){
             }
                cout<<"\n";
             }
+            cout<<"TEST1\n";
             return flowshop;
 
       } else {
@@ -452,15 +452,18 @@ int hpx_main(boost::program_options::variables_map & opts) {
   auto inputFile = opts["input-file"].as<std::string>();
    auto skeletonType = opts["skeleton"].as<std::string>();
    FSPspace space = parseFile(inputFile);
+   cout<<"TEST2\n";
    FSPNode root;
+   FSPSolution initial = initilizeUpperBound(&space);
+   vector<int> rootSol = {};
+   // root.sol = {rootSol, 0};
    root.sol = initilizeUpperBound(&space);
+   cout<<"INITIAL MAKESPAN SET UP \n";
    root.c1 = new int [space.machines];
    root.c2 = new int [space.machines];
    root.mSum = new int [space.machines];
    root.lb = 0; //lb for root doesnt matter as long as it's less than UB
    root.depth = 0;
-   root.ub = INT_MAX;
-
    //set o1, o2 makespans to 0 and initialize sum(Pkj) to 0
    for (int m = 0; m < space.machines; m++){
       root.mSum [m] = 0;
@@ -475,15 +478,17 @@ int hpx_main(boost::program_options::variables_map & opts) {
          root.mSum[m] += space.operations[m][j];
       }
    } 
+   cout<<"ROOT SET UP \n";
    auto sol = root;
 
      if (skeletonType == "seq") {
-      YewPar::Skeletons::API::Params<int> searchParameters;
+      YewPar::Skeletons::API::Params<unsigned> searchParameters;
+      searchParameters.initialBound = initial.makespan;
+
       sol = YewPar::Skeletons::Seq<GenNode,
                                    YewPar::Skeletons::API::Decision,
                                    YewPar::Skeletons::API::BoundFunction<upperBound_func>,
-                                   YewPar::Skeletons::API::PruneLevel
-                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
+                                   YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
             ::search(space, root);
     
   }
