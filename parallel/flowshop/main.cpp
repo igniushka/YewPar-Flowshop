@@ -32,7 +32,7 @@
 #endif
 
 #ifndef NUMMACHINES
-#define NUMMACHINES 10
+#define NUMMACHINES 20
 #endif
 
 
@@ -169,7 +169,7 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
    return FSPSolution{schedule, best};
 }
 
-int getMinQ(vector<int> &jobsLeft, FSPspace &flowshop, int machine){
+int getMinQ(vector<int> &jobsLeft, const FSPspace &flowshop, int machine){
    vector<int>values;
    for (auto j: jobsLeft){
       values.push_back(flowshop.jobBackwardSum[machine][j]);
@@ -177,7 +177,7 @@ int getMinQ(vector<int> &jobsLeft, FSPspace &flowshop, int machine){
    return *min_element(values.begin(), values.end());
 }
 
-int getMinR(vector<int> &jobsLeft, FSPspace  &flowshop, int machine){
+int getMinR(vector<int> &jobsLeft, const FSPspace  &flowshop, int machine){
    vector<int>values;
    for (auto j: jobsLeft){
       values.push_back(flowshop.jobForwardSum[machine][j]);
@@ -193,7 +193,11 @@ FSPSolution makeSolution(const FSPspace & space, const FSPNode<NUMMACHINES> & no
 
 }
 
-FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &flowshop, int j){
+bool compareNodes(const FSPNode<NUMMACHINES> &node1, const FSPNode<NUMMACHINES> &node2){
+   return node1.lb > node2.lb;
+}
+
+FSPNode<NUMMACHINES> boundAndCreateNode(const FSPNode<NUMMACHINES> &node, const FSPspace &flowshop, int j){
             int job = node.left[j];
             int depth = node.depth + 1;
             auto startBound=high_resolution_clock::now();
@@ -298,23 +302,28 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &fl
 }
 
 struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace> {
-  std::vector<int> items;
+  std::vector<FSPNode<NUMMACHINES>> children;
   int pos;
   std::reference_wrapper<const FSPspace > space;
   std::reference_wrapper<const FSPNode<NUMMACHINES>> n;
 
   GenNode (const FSPspace & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
-    this->numChildren = n.left.size();
+         for (int index = 0; index < n.left.size(); index++){
+            children.push_back(boundAndCreateNode(n, space, index));
+         }
+         sort(children.begin(), children.end(), compareNodes);
+    this->numChildren = children.size();
   }
 
   FSPNode<NUMMACHINES> next() override {
 
-auto parent = n.get();
-auto flowshop = space.get();
-   FSPNode<NUMMACHINES> child = boundAndCreateNode(parent, flowshop, pos);
+// auto parent = n.get();
+// auto flowshop = space.get();
+//    FSPNode<NUMMACHINES> child = boundAndCreateNode(parent, flowshop, pos);
     ++pos;
-   //  cout<<"RETURNING CHILD UB: "<< child.sol.makespan << " LB: "<< child.lb<<"\n";
+FSPNode<NUMMACHINES> child = children.back();
+children.pop_back();
     return child;
   }
 };
