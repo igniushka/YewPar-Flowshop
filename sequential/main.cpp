@@ -148,7 +148,10 @@ void deleteNode(Node* node){
    delete(node);
 }
 
-Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
+
+
+
+Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j, bool forward){
             int job = node->left[j];
             int depth = node->depth + 1;
             auto startBound=high_resolution_clock::now();
@@ -163,7 +166,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                newMsum[m] = node->mSum[m] - flowshop->operations[m][job];
             }
 
-            if (depth % 2 == 1){ // (o1 j, o2)
+            if (forward == true){ // (o1 j, o2)
             int *c1 = new int [flowshop->machines];
             c1[0] = node->c1[0] + flowshop->operations[0][job];
 
@@ -252,6 +255,55 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
          } 
 }
 
+void deleteChildren(vector<Node*> children){
+   for (Node * child : children){
+      deleteNode(child);
+   }
+}
+
+ vector<Node*> getChildList(Node* node, FSPspace flowshop){
+      vector<Node*> newForwardProblems;
+      vector<Node*> newBackwardProblems;
+      int forwardBoundSum = 0;
+      int backwardBoundSum = 0;
+
+   for (int j = 0; j<node->left.size(); j++){
+      Node *child = boundAndCreateNode(node, &flowshop, j, true);
+      if (child!=NULL){
+         newForwardProblems.push_back(child);
+         forwardBoundSum+= child->lb;
+               }else{
+                  delete(child);
+               }
+         }
+      for (int j = 0; j<node->left.size(); j++){
+      Node *child = boundAndCreateNode(node, &flowshop, j, false);
+      if (child!=NULL){
+         newBackwardProblems.push_back(child);
+         backwardBoundSum+= child->lb;
+               }else{
+                  delete(child);
+               }
+         }
+         if (newForwardProblems.size() == newBackwardProblems.size()){
+            if (forwardBoundSum<backwardBoundSum){
+               deleteChildren(newBackwardProblems);
+               return newForwardProblems;
+            } else {
+               deleteChildren(newForwardProblems);
+                return newBackwardProblems;
+            }
+         } else {
+            if (newForwardProblems.size() < newBackwardProblems.size()){
+                  deleteChildren(newBackwardProblems);
+                  return newForwardProblems;
+            } else{
+                  deleteChildren(newForwardProblems);
+                  return newBackwardProblems;
+            }
+         }
+ }
+
 
 //RECURSIVE SOLUTION HERE
 void solve(FSPspace* flowshop){
@@ -303,14 +355,7 @@ void solve(FSPspace* flowshop){
       // if there are more than 1 jobs left
       if (node->left.size() > 1){
         if(node->lb < ub){
-            for (int j = 0; j<node->left.size(); j++){
-               Node *child = boundAndCreateNode(node, flowshop, j);
-               if (child!=NULL){
-                  newProblems.push_back(child);
-               }else{
-                  delete(child);
-               }
-         }
+            newProblems = getChildList(node, *flowshop);
 
       // sort the nodes in descenging lb order and append it to problem list
         auto otherOPTime = high_resolution_clock::now();
