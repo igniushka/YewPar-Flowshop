@@ -26,6 +26,16 @@
 #include "skeletons/StackStealing.hpp"
 #include <boost/serialization/access.hpp>
 
+
+#ifndef NUMJOBS
+#define NUMJOBS 20
+#endif
+
+#ifndef NUMMACHINES
+#define NUMMACHINES 10
+#endif
+
+
 using namespace std::chrono; 
 using namespace std;
 
@@ -47,17 +57,6 @@ struct JobLength{
    }
 };
 
-struct Node {
-   vector<int> left;
-   vector<int> s1;
-   vector<int> s2;
-   int* c1;
-   int* c2;
-   int lb;
-   int* mSum;
-   int depth;
-};
-
 struct FSPSolution {
   std::vector<int> sequence;
   unsigned makespan;
@@ -69,6 +68,7 @@ struct FSPSolution {
   }
 };
 
+template <unsigned M>
 struct FSPNode {
   friend class boost::serialization::access;
   FSPSolution sol;
@@ -77,12 +77,9 @@ struct FSPNode {
    vector<int> s2;
    int lb;
    int depth;
-   int* c1;
-   int* c2;
-   int* mSum;
-      // array<int, M> c1;
-   // array<int, M> c2;
-   // array<int, M> mSum;
+   array<int, M> c1;
+   array<int, M> c2;
+   array<int, M> mSum;
 
   int getObj() const {
    return sol.makespan;
@@ -130,7 +127,7 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
    vector<int> bestSequence;
    bestSequence.assign(scheduled.begin(), scheduled.end());
    bestSequence.insert(bestSequence.begin(), unscheduled);
-    int best = calculateSequence(&bestSequence, flowshop);
+    unsigned best = calculateSequence(&bestSequence, flowshop);
     for (int i = 1; i <= scheduled.size(); i++){
        partial.assign(scheduled.begin(), scheduled.end());
        partial.insert(partial.begin()+i, unscheduled);
@@ -188,31 +185,21 @@ int getMinR(vector<int> &jobsLeft, FSPspace  &flowshop, int machine){
    return *min_element(values.begin(), values.end());
 }
 
-bool compareNodes(Node *node1, Node *node2){
-   return node1->lb > node2->lb;
-}
-
-void deleteNode(Node* node){ 
-   delete [] node->c1;
-   delete [] node->c2;
-   delete [] node->mSum;
-   delete(node);
-}
-
-FSPSolution makeSolution(const FSPspace & space, const FSPNode & node){
+FSPSolution makeSolution(const FSPspace & space, const FSPNode<NUMMACHINES> & node){
    vector<int> candidate;
-   candidate.assign(node.s1.begin(), node.s2.end());
+   candidate.assign(node.s1.begin(), node.s1.end());
    std::copy(node.s2.begin(), node.s2.end(), std::back_inserter(candidate));
    return FSPSolution{candidate, calculateSequence(&candidate, &space)};
+
 }
 
-FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
+FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &flowshop, int j){
             int job = node.left[j];
             int depth = node.depth + 1;
             auto startBound=high_resolution_clock::now();
             auto otherOPTime = high_resolution_clock::now();
             vector<int>bounds;
-            int *newMsum = new int [flowshop.machines];
+            array<int, NUMMACHINES> newMsum;
             vector<int>left = node.left;
             left.erase(left.begin()+j);
 
@@ -222,7 +209,7 @@ FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
             }
 
             if (depth % 2 == 1){ // (o1 j, o2)
-            int *c1 = new int [flowshop.machines];
+            array<int, NUMMACHINES> c1;
             c1[0] = node.c1[0] + flowshop.operations[0][job];
 
             //Machine 1 bound
@@ -245,15 +232,16 @@ FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            // if (lb < ub){
-               FSPNode child;
+               FSPNode<NUMMACHINES> child;
                child.s2 = node.s2;
                child.s1 = node.s1;
                child.s1.push_back(job);
-               child.c1=c1;
-               child.c2 = new int [flowshop.machines];
-               std::memcpy(child.c2, node.c2, sizeof(int)*flowshop.machines); //can rely on parent c1
+                child.c1=c1;
+               // copy(begin(c1), end(c1), begin(child.c1));
+                child.c2 = node.c2;
+               // copy(begin(node.c2), end(node.c2), begin(child.c2)); //can rely on parent c2
                child.mSum = newMsum;
+               // copy(begin(newMsum), end(newMsum), begin(child.mSum));
                child.left = left;
                child.lb =lb;
                child.depth = depth;
@@ -263,14 +251,8 @@ FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
                   child.sol.makespan = INT_MAX;
                }
                return child;
-            // } else {
-            //    delete [] newMsum;
-            //    delete [] c1;
-            //    return NULL;
-            // }
-
             }else{  // (o1, j o2)
-               int *c2 = new int [flowshop.machines];
+               array<int, NUMMACHINES> c2;
                c2[flowshop.machines-1] = node.c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
 
                //machine m bound
@@ -293,15 +275,16 @@ FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            // if (lb < ub){
-               FSPNode child;
+               FSPNode<NUMMACHINES> child;
                child.s1 = node.s1;
                child.s2 = node.s2;
                child.s2.insert(child.s2.begin(), job);
                child.c2 = c2;
-               child.c1 = new int [flowshop.machines];
-               std::memcpy(child.c1, node.c1, sizeof(int)*flowshop.machines); //can rely on parent c2
+               // copy(begin(c2), end(c2), begin(child.c2));
+               child.c1 = node.c1;  //can rely on parent c1
+               // copy(begin(node.c1), end(node.c1), begin(child.c1));
                child.mSum = newMsum;
+               // copy(begin(newMsum), end(newMsum), begin(child.mSum));
                child.left = left;
                child.lb = lb;
                child.depth = depth;
@@ -311,49 +294,35 @@ FSPNode boundAndCreateNode(FSPNode &node, FSPspace &flowshop, int j){
                   child.sol.makespan = INT_MAX;
                }
                return child; 
-            // } else {
-            //    delete [] newMsum;
-            //    delete [] c2;
-            //    return NULL;
-            // }
-
          } 
 }
 
-
-
-
-// template <unsigned numItems>
-struct GenNode : YewPar::NodeGenerator<FSPNode, FSPspace> {
+struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace> {
   std::vector<int> items;
   int pos;
   std::reference_wrapper<const FSPspace > space;
-  std::reference_wrapper<const FSPNode> n;
+  std::reference_wrapper<const FSPNode<NUMMACHINES>> n;
 
-  GenNode (const FSPspace & space, const FSPNode & n) :
+  GenNode (const FSPspace & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
-            cout<<"INIT GENNODE\n";
     this->numChildren = n.left.size();
-
   }
 
-  FSPNode next() override {
+  FSPNode<NUMMACHINES> next() override {
 
 auto parent = n.get();
 auto flowshop = space.get();
-   FSPNode child = boundAndCreateNode(parent, flowshop, pos);
+   FSPNode<NUMMACHINES> child = boundAndCreateNode(parent, flowshop, pos);
     ++pos;
-    cout<<"RETURNING CHILD UB: "<< child.sol.makespan << " LB: "<< child.lb<<"\n";
+   //  cout<<"RETURNING CHILD UB: "<< child.sol.makespan << " LB: "<< child.lb<<"\n";
     return child;
   }
 };
 
-
-unsigned lowerBound(const FSPspace & space, const FSPNode & n) {
+unsigned lowerBound(const FSPspace & space, const FSPNode<NUMMACHINES> & n) {
    //TODO implement the LB calculation here
-  return n.lb;
+   return n.lb;
 }
-
 
 
 typedef func<decltype(&lowerBound), &lowerBound> upperBound_func;
@@ -435,7 +404,6 @@ FSPspace parseFile(string fileName){
             }
                cout<<"\n";
             }
-            cout<<"TEST1\n";
             return flowshop;
 
       } else {
@@ -452,17 +420,11 @@ int hpx_main(boost::program_options::variables_map & opts) {
   auto inputFile = opts["input-file"].as<std::string>();
    auto skeletonType = opts["skeleton"].as<std::string>();
    FSPspace space = parseFile(inputFile);
-   cout<<"TEST2\n";
-   FSPNode root;
+   FSPNode<NUMMACHINES> root;
    FSPSolution initial = initilizeUpperBound(&space);
    vector<int> rootSol = {};
-   // root.sol = {rootSol, 0};
    root.sol = initilizeUpperBound(&space);
-   cout<<"INITIAL MAKESPAN SET UP \n";
-   root.c1 = new int [space.machines];
-   root.c2 = new int [space.machines];
-   root.mSum = new int [space.machines];
-   root.lb = 0; //lb for root doesnt matter as long as it's less than UB
+   // root.lb = 99999; //lb for root doesnt matter as long as it's less than UB
    root.depth = 0;
    //set o1, o2 makespans to 0 and initialize sum(Pkj) to 0
    for (int m = 0; m < space.machines; m++){
@@ -478,24 +440,24 @@ int hpx_main(boost::program_options::variables_map & opts) {
          root.mSum[m] += space.operations[m][j];
       }
    } 
-   cout<<"ROOT SET UP \n";
    auto sol = root;
+      auto executionStart = high_resolution_clock::now();
 
      if (skeletonType == "seq") {
       YewPar::Skeletons::API::Params<unsigned> searchParameters;
-      searchParameters.initialBound = initial.makespan;
-
+         searchParameters.initialBound = initial.makespan;
       sol = YewPar::Skeletons::Seq<GenNode,
-                                   YewPar::Skeletons::API::Decision,
+                                   YewPar::Skeletons::API::Optimisation,
                                    YewPar::Skeletons::API::BoundFunction<upperBound_func>,
                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
-            ::search(space, root);
+            ::search(space, root, searchParameters);
     
   }
-
+         auto executionTime = duration_cast<microseconds>(high_resolution_clock::now() - executionStart);
          cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
          cout << "\n";
+      cout << "Execution time: " << executionTime.count() << " microseconds" << endl;
 
                // solve(flowshop);
     for (int m = 0; m<space.machines; m++){
