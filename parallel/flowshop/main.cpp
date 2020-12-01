@@ -313,6 +313,7 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace> {
             children.push_back(boundAndCreateNode(n, space, index));
          }
          sort(children.begin(), children.end(), compareNodes);
+         nodesProcessed++;
     this->numChildren = children.size();
   }
 
@@ -467,6 +468,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
          cout << "\n";
       cout << "Execution time: " << executionTime.count() << " microseconds" << endl;
+      cout << "Nodes explored: " << nodesProcessed << endl;
 
                // solve(flowshop);
     for (int m = 0; m<space.machines; m++){
