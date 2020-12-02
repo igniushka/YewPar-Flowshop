@@ -466,7 +466,18 @@ int hpx_main(boost::program_options::variables_map & opts) {
                                          YewPar::Skeletons::API::BoundFunction<upperBound_func>,
                                          YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
                ::search(space, root, searchParameters);
-}
+} else if (skeletonType == "budget") {
+  auto budget = opts["backtrack-budget"].as<unsigned>();
+    cout<<"budget skeleton with budget: "<<budget<<"\n";
+    searchParameters.backtrackBudget = budget;
+    sol = YewPar::Skeletons::Budget<GenNode,
+                                    YewPar::Skeletons::API::Optimisation,
+                                    YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
+        ::search(space, root, searchParameters);
+  }
+
+
          auto executionTime = duration_cast<microseconds>(high_resolution_clock::now() - executionStart);
          cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
