@@ -200,6 +200,7 @@ FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSP
 }
 
 FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j){
+            nodesProcessed++;
             auto bnbStart = high_resolution_clock::now();
             int job = node.left[j];
             int depth = node.depth + 1;
@@ -311,7 +312,6 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINE
 
 auto parent = n.get();
 auto flowshop = space.get();
-   nodesProcessed++;
    FSPNode<NUMMACHINES> child = boundAndCreateNode(parent, flowshop, pos);
     ++pos;
    //  cout<<"RETURNING CHILD UB: "<< child.sol.makespan << " LB: "<< child.lb<<"\n";
@@ -369,14 +369,8 @@ FSPspace<NUMMACHINES, NUMJOBS> parseFile(string fileName){
             flowshop.jobs = chunks[0];
             flowshop.machines = chunks[1];
             delete[] chunks;
-            // flowshop.operations = new int* [flowshop.machines];
-            // flowshop.jobForwardSum = new int* [flowshop.machines];
-            // flowshop.jobBackwardSum = new int* [flowshop.machines];
             cout<< "jobs: " <<flowshop.jobs << " machines:" << flowshop.machines << "\n";
             for (int m = 0; m < flowshop.machines; m++){
-                  // flowshop.operations[m] = new int [flowshop.jobs];
-                  // flowshop.jobForwardSum[m] = new int [flowshop.jobs];
-                  // flowshop.jobBackwardSum[m] = new int [flowshop.jobs];
                   getline(file, line); 
                   chunks = parseLine(line, flowshop.jobs);
                   for (int j = 0; j< flowshop.jobs; j++){
@@ -462,24 +456,24 @@ int hpx_main(boost::program_options::variables_map & opts) {
                                            YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
         ::search(space, root, searchParameters);
   } 
-   // else if (skeletonType == "depthbounded") {
-//    cout<<"depthbounded skeleton\n";
-//      auto spawnDepth = opts["spawn-depth"].as<unsigned>();
+   else if (skeletonType == "depthbounded") {
+     auto spawnDepth = opts["spawn-depth"].as<unsigned>();
+     cout<<"depthbounded skeleton with depth: "<<spawnDepth<<"\n";
 
-//     searchParameters.spawnDepth = spawnDepth;
-//     sol = YewPar::Skeletons::DepthBounded<GenNode,
-//                                          YewPar::Skeletons::API::Optimisation,
-//                                          YewPar::Skeletons::API::BoundFunction<upperBound_func>,
-//                                          YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
-//                ::search(space, root, searchParameters);
-// }
+    searchParameters.spawnDepth = spawnDepth;
+    sol = YewPar::Skeletons::DepthBounded<GenNode,
+                                         YewPar::Skeletons::API::Optimisation,
+                                         YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                         YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
+               ::search(space, root, searchParameters);
+}
          auto executionTime = duration_cast<microseconds>(high_resolution_clock::now() - executionStart);
          cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
          cout << "\n";
       cout << "Execution time: " << executionTime.count() << " microseconds" << endl;
       cout << "BnB time: " << branchingTime.count() << " microseconds" << endl;
-      cout << "Nodes processed: " << nodesProcessed << endl;
+      cout << "Nodes created: " << nodesProcessed << endl;
       return hpx::finalize();
    }
 
@@ -491,7 +485,7 @@ int main(int argc, char* argv[]) {
   desc_commandline.add_options()
       ( "skeleton",
         boost::program_options::value<std::string>()->default_value("seq"),
-        "Which skeleton to use: seq, depthbound, stacksteal, budget, or ordered"
+        "Which skeleton to use: seq, depthbounded, stacksteal, budget, or ordered"
         )
       ( "input-file,f",
         boost::program_options::value<std::string>()->required(),
