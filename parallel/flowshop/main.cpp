@@ -305,6 +305,7 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINE
 
   GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
+                     cout<<"LB: "<<n.lb<<"\n";
     this->numChildren = n.left.size();
   }
 
@@ -314,7 +315,7 @@ auto parent = n.get();
 auto flowshop = space.get();
    FSPNode<NUMMACHINES> child = boundAndCreateNode(parent, flowshop, pos);
     ++pos;
-   //  cout<<"RETURNING CHILD UB: "<< child.sol.makespan << " LB: "<< child.lb<<"\n";
+   //  cout<<"LB: "<< child.lb<<"\n";
     return child;
   }
 };
