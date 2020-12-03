@@ -32,7 +32,7 @@
 #endif
 
 #ifndef NUMMACHINES
-#define NUMMACHINES 10
+#define NUMMACHINES 20
 #endif
 
 
@@ -45,10 +45,8 @@ using namespace std;
    auto makespanCountTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto otherBoundOperationsTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto boundCalculationTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto partialSeq0Time = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto partialSeq0Time = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());  
    int nodesProcessed = 0;
-   int ub = 999999;
-  
 
 struct JobLength{
    int index;
@@ -93,20 +91,30 @@ struct FSPNode {
     ar & s2;
   }
 };
-
+template <unsigned M, unsigned N>
 struct FSPspace {
   int machines;
   int jobs;
-  int** operations;
-  int** jobForwardSum;
-  int** jobBackwardSum;
+  array<array<int, N>, M> operations;
+  array<array<int, N>, M> jobForwardSum;
+  array<array<int, N>, M> jobBackwardSum;
+
+  template <class Archive>
+  void serialize(Archive & ar, const unsigned int version) {
+    ar & machines;
+    ar & jobs;
+    ar & operations;
+    ar & jobBackwardSum;
+    ar & jobForwardSum;
+  }
+
 };
 
 bool compareJobLengths(JobLength j1, JobLength j2){
    return j1.length > j2.length;
 }
 
-unsigned calculateSequence(vector<int>* jobs, const FSPspace* flowshop){
+unsigned calculateSequence(vector<int>* jobs, const FSPspace<NUMMACHINES, NUMJOBS>* flowshop){
   int* completionTimes = new int [flowshop->machines];
   for (int m = 0; m < flowshop->machines; m++){
      completionTimes[m] = 0;
@@ -122,7 +130,7 @@ unsigned calculateSequence(vector<int>* jobs, const FSPspace* flowshop){
    return result;
 }
 
-tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled, FSPspace *flowshop){
+tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled, FSPspace<NUMMACHINES, NUMJOBS> *flowshop){
    vector<int> partial;
    vector<int> bestSequence;
    bestSequence.assign(scheduled.begin(), scheduled.end());
@@ -140,9 +148,7 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
     return make_tuple(bestSequence, best);
 }
 
-
-// tuple<vector<int>, int> initilizeUpperBound(FSPspace* flowshop){
-   FSPSolution initilizeUpperBound(FSPspace* flowshop){
+   FSPSolution initilizeUpperBound(FSPspace<NUMMACHINES, NUMJOBS>* flowshop){
 
    vector<JobLength> jobLengths;
    vector<int> schedule;
@@ -169,7 +175,7 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
    return FSPSolution{schedule, best};
 }
 
-int getMinQ(vector<int> &jobsLeft, FSPspace &flowshop, int machine){
+int getMinQ(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int machine){
    vector<int>values;
    for (auto j: jobsLeft){
       values.push_back(flowshop.jobBackwardSum[machine][j]);
@@ -177,7 +183,7 @@ int getMinQ(vector<int> &jobsLeft, FSPspace &flowshop, int machine){
    return *min_element(values.begin(), values.end());
 }
 
-int getMinR(vector<int> &jobsLeft, FSPspace  &flowshop, int machine){
+int getMinR(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS>  &flowshop, int machine){
    vector<int>values;
    for (auto j: jobsLeft){
       values.push_back(flowshop.jobForwardSum[machine][j]);
@@ -185,7 +191,7 @@ int getMinR(vector<int> &jobsLeft, FSPspace  &flowshop, int machine){
    return *min_element(values.begin(), values.end());
 }
 
-FSPSolution makeSolution(const FSPspace & space, const FSPNode<NUMMACHINES> & node){
+FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & node){
    vector<int> candidate;
    candidate.assign(node.s1.begin(), node.s1.end());
    std::copy(node.s2.begin(), node.s2.end(), std::back_inserter(candidate));
@@ -193,7 +199,9 @@ FSPSolution makeSolution(const FSPspace & space, const FSPNode<NUMMACHINES> & no
 
 }
 
-FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &flowshop, int j){
+void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j, FSPNode<NUMMACHINES> &child){
+            nodesProcessed++;
+            auto bnbStart = high_resolution_clock::now();
             int job = node.left[j];
             int depth = node.depth + 1;
             auto startBound=high_resolution_clock::now();
@@ -202,8 +210,6 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &fl
             array<int, NUMMACHINES> newMsum;
             vector<int>left = node.left;
             left.erase(left.begin()+j);
-
-
             for (int m = 0; m<flowshop.machines; m++){
                newMsum[m] = node.mSum[m] - flowshop.operations[m][job];
             }
@@ -214,9 +220,7 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &fl
 
             //Machine 1 bound
             if (node.s2.empty()){
-               auto seq0start = high_resolution_clock::now();
                bounds.push_back(newMsum[0] + getMinQ(left, flowshop, 0));
-               partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
             } else {
                bounds.push_back(newMsum[0] + node.c2[0]); 
             }
@@ -232,16 +236,13 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &fl
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-               FSPNode<NUMMACHINES> child;
+               // FSPNode<NUMMACHINES> child;
                child.s2 = node.s2;
                child.s1 = node.s1;
                child.s1.push_back(job);
                 child.c1=c1;
-               // copy(begin(c1), end(c1), begin(child.c1));
                 child.c2 = node.c2;
-               // copy(begin(node.c2), end(node.c2), begin(child.c2)); //can rely on parent c2
                child.mSum = newMsum;
-               // copy(begin(newMsum), end(newMsum), begin(child.mSum));
                child.left = left;
                child.lb =lb;
                child.depth = depth;
@@ -250,7 +251,8 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &fl
                } else {
                   child.sol.makespan = INT_MAX;
                }
-               return child;
+               branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
+               // return child;
             }else{  // (o1, j o2)
                array<int, NUMMACHINES> c2;
                c2[flowshop.machines-1] = node.c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
@@ -275,16 +277,13 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &fl
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-               FSPNode<NUMMACHINES> child;
+               // FSPNode<NUMMACHINES> child;
                child.s1 = node.s1;
                child.s2 = node.s2;
                child.s2.insert(child.s2.begin(), job);
                child.c2 = c2;
-               // copy(begin(c2), end(c2), begin(child.c2));
                child.c1 = node.c1;  //can rely on parent c1
-               // copy(begin(node.c1), end(node.c1), begin(child.c1));
                child.mSum = newMsum;
-               // copy(begin(newMsum), end(newMsum), begin(child.mSum));
                child.left = left;
                child.lb = lb;
                child.depth = depth;
@@ -293,17 +292,18 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace &fl
                } else {
                   child.sol.makespan = INT_MAX;
                }
-               return child; 
+               branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
+               // return child; 
          } 
 }
 
-struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace> {
+struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINES, NUMJOBS>> {
   std::vector<int> items;
   int pos;
-  std::reference_wrapper<const FSPspace > space;
+  std::reference_wrapper<const FSPspace<NUMMACHINES, NUMJOBS>> space;
   std::reference_wrapper<const FSPNode<NUMMACHINES>> n;
 
-  GenNode (const FSPspace & space, const FSPNode<NUMMACHINES> & n) :
+  GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
     this->numChildren = n.left.size();
   }
@@ -312,14 +312,15 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace> {
 
 auto parent = n.get();
 auto flowshop = space.get();
-   FSPNode<NUMMACHINES> child = boundAndCreateNode(parent, flowshop, pos);
+   FSPNode<NUMMACHINES> child;
+    boundAndCreateNode(parent, flowshop, pos, child);
     ++pos;
-   //  cout<<"RETURNING CHILD UB: "<< child.sol.makespan << " LB: "<< child.lb<<"\n";
+   //  cout<<"LB: "<< child.lb<<"\n";
     return child;
   }
 };
 
-unsigned lowerBound(const FSPspace & space, const FSPNode<NUMMACHINES> & n) {
+unsigned lowerBound(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & n) {
    //TODO implement the LB calculation here
    return n.lb;
 }
@@ -355,11 +356,11 @@ int* parseLine(string line, int expected){
 }
 
 
-FSPspace parseFile(string fileName){
+FSPspace<NUMMACHINES, NUMJOBS> parseFile(string fileName){
    int* chunks;
    ifstream file;
    file.open(fileName);
-   FSPspace flowshop;
+   FSPspace<NUMMACHINES, NUMJOBS> flowshop;
    if (file){ 
       printf("file exists\n");
        if (file.is_open()){
@@ -369,14 +370,8 @@ FSPspace parseFile(string fileName){
             flowshop.jobs = chunks[0];
             flowshop.machines = chunks[1];
             delete[] chunks;
-            flowshop.operations = new int* [flowshop.machines];
-            flowshop.jobForwardSum = new int* [flowshop.machines];
-            flowshop.jobBackwardSum = new int* [flowshop.machines];
             cout<< "jobs: " <<flowshop.jobs << " machines:" << flowshop.machines << "\n";
             for (int m = 0; m < flowshop.machines; m++){
-                  flowshop.operations[m] = new int [flowshop.jobs];
-                  flowshop.jobForwardSum[m] = new int [flowshop.jobs];
-                  flowshop.jobBackwardSum[m] = new int [flowshop.jobs];
                   getline(file, line); 
                   chunks = parseLine(line, flowshop.jobs);
                   for (int j = 0; j< flowshop.jobs; j++){
@@ -419,7 +414,7 @@ FSPspace parseFile(string fileName){
 int hpx_main(boost::program_options::variables_map & opts) {
   auto inputFile = opts["input-file"].as<std::string>();
    auto skeletonType = opts["skeleton"].as<std::string>();
-   FSPspace space = parseFile(inputFile);
+   FSPspace<NUMMACHINES, NUMJOBS> space = parseFile(inputFile);
    FSPNode<NUMMACHINES> root;
    FSPSolution initial = initilizeUpperBound(&space);
    vector<int> rootSol = {};
@@ -441,33 +436,57 @@ int hpx_main(boost::program_options::variables_map & opts) {
       }
    } 
    auto sol = root;
-      auto executionStart = high_resolution_clock::now();
+   auto executionStart = high_resolution_clock::now();
+   YewPar::Skeletons::API::Params<unsigned> searchParameters;
+   searchParameters.initialBound = initial.makespan;
 
-     if (skeletonType == "seq") {
-      YewPar::Skeletons::API::Params<unsigned> searchParameters;
-         searchParameters.initialBound = initial.makespan;
+   if (skeletonType == "seq") {
+      cout<<"Sequential skeleton\n";
       sol = YewPar::Skeletons::Seq<GenNode,
                                    YewPar::Skeletons::API::Optimisation,
                                    YewPar::Skeletons::API::BoundFunction<upperBound_func>,
                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
             ::search(space, root, searchParameters);
     
+  } else if (skeletonType == "stacksteal") {
+      cout<<"stacksteal skeleton\n";
+    searchParameters.stealAll = static_cast<bool>(opts.count("chunked"));
+    sol = YewPar::Skeletons::StackStealing<GenNode,
+                                           YewPar::Skeletons::API::Optimisation,
+                                           YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                           YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
+        ::search(space, root, searchParameters);
+  } 
+   else if (skeletonType == "depthbounded") {
+     auto spawnDepth = opts["spawn-depth"].as<unsigned>();
+     cout<<"depthbounded skeleton with depth: "<<spawnDepth<<"\n";
+
+    searchParameters.spawnDepth = spawnDepth;
+    sol = YewPar::Skeletons::DepthBounded<GenNode,
+                                         YewPar::Skeletons::API::Optimisation,
+                                         YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                         YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
+               ::search(space, root, searchParameters);
+} else if (skeletonType == "budget") {
+  auto budget = opts["backtrack-budget"].as<unsigned>();
+    cout<<"budget skeleton with budget: "<<budget<<"\n";
+    searchParameters.backtrackBudget = budget;
+    sol = YewPar::Skeletons::Budget<GenNode,
+                                    YewPar::Skeletons::API::Optimisation,
+                                    YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
+        ::search(space, root, searchParameters);
   }
+
+
          auto executionTime = duration_cast<microseconds>(high_resolution_clock::now() - executionStart);
          cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
          cout << "\n";
       cout << "Execution time: " << executionTime.count() << " microseconds" << endl;
-
-               // solve(flowshop);
-    for (int m = 0; m<space.machines; m++){
-        delete[]  (space.jobBackwardSum[m]);
-        delete[] (space.jobForwardSum[m]);
-        delete[] (space.operations[m]);
-      }
-    delete[]  (space.jobBackwardSum);
-    delete[] (space.jobForwardSum);
-    delete[] (space.operations);
+      cout << "BnB time: " << branchingTime.count() << " microseconds" << endl;
+      cout << "Nodes bound: " << nodesProcessed << endl;
+      return hpx::finalize();
    }
 
 
@@ -476,23 +495,23 @@ int main(int argc, char* argv[]) {
     desc_commandline("Usage: " HPX_APPLICATION_STRING " [options]");
 
   desc_commandline.add_options()
-    ( "skeleton",
-      boost::program_options::value<std::string>()->default_value("seq"),
-      "Which skeleton to use: seq, depthbound, stacksteal, budget, or ordered"
-    )
-    ( "input-file,f",
-      boost::program_options::value<std::string>()->required(),
-      "Input problem"
-    )
-    ( "backtrack-budget,b",
-      boost::program_options::value<unsigned>()->default_value(500),
-      "Number of backtracks before spawning work"
-    )
-    ("chunked", "Use chunking with stack stealing")
-    ( "spawn-depth,d",
-      boost::program_options::value<unsigned>()->default_value(0),
-      "Depth in the tree to spawn until (for parallel skeletons only)"
-    );
+      ( "skeleton",
+        boost::program_options::value<std::string>()->default_value("seq"),
+        "Which skeleton to use: seq, depthbounded, stacksteal, budget, or ordered"
+        )
+      ( "input-file,f",
+        boost::program_options::value<std::string>()->required(),
+        "Input problem"
+        )
+      ( "backtrack-budget,b",
+        boost::program_options::value<unsigned>()->default_value(500),
+        "Number of backtracks before spawning work"
+        )
+       ("chunked", "Use chunking with stack stealing")
+       ( "spawn-depth,d",
+        boost::program_options::value<unsigned>()->default_value(0),
+        "Depth in the tree to spawn until (for parallel skeletons only)"
+        );
 
   YewPar::registerPerformanceCounters();
 

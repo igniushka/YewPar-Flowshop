@@ -149,6 +149,8 @@ void deleteNode(Node* node){
 }
 
 Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
+            nodesProcessed++;
+            auto boundingStart = high_resolution_clock::now();
             int job = node->left[j];
             int depth = node->depth + 1;
             auto startBound=high_resolution_clock::now();
@@ -187,6 +189,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
+            // cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
                Node* child = new Node;
                child->s2 = node->s2;
@@ -199,10 +202,12 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                child->left = left;
                child->lb =lb;
                child->depth = depth;
+               boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child;
             } else {
                delete [] newMsum;
                delete [] c1;
+               boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return NULL;
             }
 
@@ -230,6 +235,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
+            // cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
                Node* child = new Node;
                child->s1 = node->s1;
@@ -242,10 +248,12 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                child->left = left;
                child->lb = lb;
                child->depth = depth;
+               boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child; 
             } else {
                delete [] newMsum;
                delete [] c2;
+                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return NULL;
             }
 
@@ -255,7 +263,6 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
 
 //RECURSIVE SOLUTION HERE
 void solve(FSPspace* flowshop){
-   int nodesDecomposed = 0;
 
    //initialize problem
    vector<int> solution;
@@ -293,7 +300,6 @@ void solve(FSPspace* flowshop){
    problems.push_back(root);
    //solve problem recursively
    while (problems.size() > 0){
-      nodesDecomposed++;
 
       Node* node = problems.back();
       problems.pop_back();
@@ -306,7 +312,8 @@ void solve(FSPspace* flowshop){
             for (int j = 0; j<node->left.size(); j++){
                Node *child = boundAndCreateNode(node, flowshop, j);
                if (child!=NULL){
-                  newProblems.push_back(child);
+                  // newProblems.push_back(child);
+                  newProblems.insert(newProblems.begin(), child);
                }else{
                   delete(child);
                }
@@ -315,7 +322,7 @@ void solve(FSPspace* flowshop){
       // sort the nodes in descenging lb order and append it to problem list
         auto otherOPTime = high_resolution_clock::now();
         if (!newProblems.empty()){
-         sort(newProblems.begin(), newProblems.end(), compareNodes);
+         // sort(newProblems.begin(), newProblems.end(), compareNodes);
          std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
         }
          deleteNode(node);
@@ -343,7 +350,7 @@ void solve(FSPspace* flowshop){
       auto duration = duration_cast<microseconds>(stop - start); 
   
       cout << "Execution time: " << duration.count() << " microseconds" << endl;
-      cout << "Nodes decomposed: " << nodesDecomposed << endl; 
+      cout << "Nodes bounded: " << nodesProcessed << endl; 
       cout << "Makespan counting time:" <<makespanCountTime.count() << " microseconds" << endl; 
       cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
       cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
