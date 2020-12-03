@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <array>
+#include <memory>
 #include <sstream>
 #include <iterator>
 #include <list>
@@ -178,7 +179,7 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
    return FSPSolution{schedule, best};
 }
 
-int getMinQ(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int machine){
+int getMinQ(vector<int> &jobsLeft, const FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int machine){
    vector<int>values;
    for (auto j: jobsLeft){
       values.push_back(flowshop.jobBackwardSum[machine][j]);
@@ -186,7 +187,7 @@ int getMinQ(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int
    return *min_element(values.begin(), values.end());
 }
 
-int getMinR(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS>  &flowshop, int machine){
+int getMinR(vector<int> &jobsLeft, const FSPspace<NUMMACHINES, NUMJOBS>  &flowshop, int machine){
    vector<int>values;
    for (auto j: jobsLeft){
       values.push_back(flowshop.jobForwardSum[machine][j]);
@@ -200,6 +201,10 @@ FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSP
    std::copy(node.s2.begin(), node.s2.end(), std::back_inserter(candidate));
    return FSPSolution{candidate, calculateSequence(&candidate, &space)};
 
+}
+
+bool compareNodes(std::shared_ptr<FSPNode<NUMMACHINES>> node1 , std::shared_ptr<FSPNode<NUMMACHINES>> node2){
+   return node1->lb > node2->lb;
 }
 
 void boundAndCreateNode(const FSPNode<NUMMACHINES> &node, const FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j, FSPNode<NUMMACHINES> &child){
@@ -307,7 +312,7 @@ void boundAndCreateNode(const FSPNode<NUMMACHINES> &node, const FSPspace<NUMMACH
 }
 
 struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINES, NUMJOBS>> {
-  std::vector<FSPNode<NUMMACHINES>&> nodes;
+  std::vector<std::shared_ptr<FSPNode<NUMMACHINES>>> nodes;
   int pos;
   std::reference_wrapper<const FSPspace<NUMMACHINES, NUMJOBS>> space;
   std::reference_wrapper<const FSPNode<NUMMACHINES>> n;
@@ -315,24 +320,20 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINE
   GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
          for (int i = 0; i<n.left.size(); i++){
-            FSPNode<NUMMACHINES> child;
-             boundAndCreateNode(n, space, pos, child);
-             nodes.push_back(child);
+             shared_ptr<FSPNode<NUMMACHINES>> ch (new FSPNode<NUMMACHINES>);
+            //  FSPNode<NUMMACHINES>* child = new FSPNode<NUMMACHINES>;
+             boundAndCreateNode(n, space, i, *ch);
+             nodes.push_back(std::move(ch));
          }
-         sort(nodes, )
-
-    this->numChildren = n.left.size();
+      sort(nodes.begin(), nodes.end(), compareNodes);
+      this->numChildren = n.left.size();
   }
 
   FSPNode<NUMMACHINES> next() override {
-
-auto parent = n.get();
-auto flowshop = space.get();
-   FSPNode<NUMMACHINES> child;
-    boundAndCreateNode(parent, flowshop, pos, child);
+   auto child = nodes.back();
+   nodes.pop_back();
     ++pos;
-   //  cout<<"LB: "<< child.lb<<"\n";
-    return child;
+    return *child;
   }
 };
 

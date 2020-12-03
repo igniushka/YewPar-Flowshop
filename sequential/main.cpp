@@ -320,8 +320,8 @@ void solve(FSPspace* flowshop){
             for (int j = 0; j<node->left.size(); j++){
                Node *child = boundAndCreateNode(node, flowshop, j);
                if (child!=NULL){
-                  // newProblems.push_back(child);
-                  newProblems.insert(newProblems.begin(), child);
+                  newProblems.push_back(child);
+                  // newProblems.insert(newProblems.begin(), child);
                }else{
                   delete(child);
                }
@@ -330,7 +330,7 @@ void solve(FSPspace* flowshop){
       // sort the nodes in descenging lb order and append it to problem list
         auto otherOPTime = high_resolution_clock::now();
         if (!newProblems.empty()){
-         // sort(newProblems.begin(), newProblems.end(), compareNodes);
+         sort(newProblems.begin(), newProblems.end(), compareNodes);
          std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
         }
          deleteNode(node);
