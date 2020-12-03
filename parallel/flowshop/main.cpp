@@ -46,6 +46,9 @@ using namespace std;
    auto otherBoundOperationsTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto boundCalculationTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto partialSeq0Time = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());  
+   auto boundAtime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto boundBTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+
    int nodesProcessed = 0;
 
 struct JobLength{
@@ -202,6 +205,7 @@ FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSP
 void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j, FSPNode<NUMMACHINES> &child){
             nodesProcessed++;
             auto bnbStart = high_resolution_clock::now();
+            auto boundAStart = high_resolution_clock::now();
             int job = node.left[j];
             int depth = node.depth + 1;
             auto startBound=high_resolution_clock::now();
@@ -213,11 +217,9 @@ void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOB
             for (int m = 0; m<flowshop.machines; m++){
                newMsum[m] = node.mSum[m] - flowshop.operations[m][job];
             }
-
             if (depth % 2 == 1){ // (o1 j, o2)
             array<int, NUMMACHINES> c1;
             c1[0] = node.c1[0] + flowshop.operations[0][job];
-
             //Machine 1 bound
             if (node.s2.empty()){
                bounds.push_back(newMsum[0] + getMinQ(left, flowshop, 0));
@@ -236,6 +238,9 @@ void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOB
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
+            boundAtime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
+            auto boundBStart = high_resolution_clock::now();
+
                // FSPNode<NUMMACHINES> child;
                child.s2 = node.s2;
                child.s1 = node.s1;
@@ -251,6 +256,7 @@ void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOB
                } else {
                   child.sol.makespan = INT_MAX;
                }
+               boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
                branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
                // return child;
             }else{  // (o1, j o2)
@@ -277,6 +283,8 @@ void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOB
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
+               boundAtime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
+               auto boundBStart = high_resolution_clock::now();
                // FSPNode<NUMMACHINES> child;
                child.s1 = node.s1;
                child.s2 = node.s2;
@@ -292,6 +300,7 @@ void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOB
                } else {
                   child.sol.makespan = INT_MAX;
                }
+               boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
                branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
                // return child; 
          } 
@@ -484,7 +493,9 @@ int hpx_main(boost::program_options::variables_map & opts) {
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
          cout << "\n";
       cout << "Execution time: " << executionTime.count() << " microseconds" << endl;
-      cout << "BnB time: " << branchingTime.count() << " microseconds" << endl;
+      cout << "Bound time: " << branchingTime.count() << " microseconds" << endl;
+      cout << "Bounding A time: " << boundAtime.count() << " microseconds" << endl; 
+      cout << "Bounding B time: " << boundBTime.count() << " microseconds" << endl; 
       cout << "Nodes bound: " << nodesProcessed << endl;
       return hpx::finalize();
    }

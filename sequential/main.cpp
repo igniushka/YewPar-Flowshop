@@ -15,12 +15,14 @@ using namespace std::chrono;
 using namespace std;
 
    auto start = high_resolution_clock::now(); 
-   auto branchingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto boundingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto makespanCountTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto otherBoundOperationsTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto boundCalculationTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto partialSeq0Time = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto boundATime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+   auto boundBTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
+
    int nodesProcessed = 0;
    int seq0 = 0;
    int ub = 999999;
@@ -151,6 +153,7 @@ void deleteNode(Node* node){
 Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             nodesProcessed++;
             auto boundingStart = high_resolution_clock::now();
+            auto boundAStart = high_resolution_clock::now();
             int job = node->left[j];
             int depth = node->depth + 1;
             auto startBound=high_resolution_clock::now();
@@ -189,8 +192,10 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
+               boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             // cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
+               auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
                child->s2 = node->s2;
                child->s1 = node->s1;
@@ -202,6 +207,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                child->left = left;
                child->lb =lb;
                child->depth = depth;
+               boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child;
             } else {
@@ -235,8 +241,9 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            // cout<<"LB: "<< lb<<"\n";
+               boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             if (lb < ub){
+               auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
                child->s1 = node->s1;
                child->s2 = node->s2;
@@ -248,6 +255,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                child->left = left;
                child->lb = lb;
                child->depth = depth;
+               boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child; 
             } else {
@@ -352,8 +360,9 @@ void solve(FSPspace* flowshop){
       cout << "Execution time: " << duration.count() << " microseconds" << endl;
       cout << "Nodes bounded: " << nodesProcessed << endl; 
       cout << "Makespan counting time:" <<makespanCountTime.count() << " microseconds" << endl; 
-      cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
       cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
+      cout << "Bounding A time: " << boundATime.count() << " microseconds" << endl; 
+      cout << "Bounding B time: " << boundBTime.count() << " microseconds" << endl; 
       cout << "Bounding calculation time: " << boundCalculationTime.count() << " microseconds" << endl; 
       cout << "Bounding partial seq calculation time: " << partialSeq0Time.count() << " microseconds" << endl;       
       cout << "Bounding other OP time: " << otherBoundOperationsTime.count() << " microseconds" << endl; 
