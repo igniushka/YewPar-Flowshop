@@ -199,7 +199,7 @@ FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSP
 
 }
 
-FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j){
+void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j, FSPNode<NUMMACHINES> &child){
             nodesProcessed++;
             auto bnbStart = high_resolution_clock::now();
             int job = node.left[j];
@@ -236,7 +236,7 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUM
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-               FSPNode<NUMMACHINES> child;
+               // FSPNode<NUMMACHINES> child;
                child.s2 = node.s2;
                child.s1 = node.s1;
                child.s1.push_back(job);
@@ -252,7 +252,7 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUM
                   child.sol.makespan = INT_MAX;
                }
                branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
-               return child;
+               // return child;
             }else{  // (o1, j o2)
                array<int, NUMMACHINES> c2;
                c2[flowshop.machines-1] = node.c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
@@ -277,7 +277,7 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUM
                }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-               FSPNode<NUMMACHINES> child;
+               // FSPNode<NUMMACHINES> child;
                child.s1 = node.s1;
                child.s2 = node.s2;
                child.s2.insert(child.s2.begin(), job);
@@ -293,7 +293,7 @@ FSPNode<NUMMACHINES> boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUM
                   child.sol.makespan = INT_MAX;
                }
                branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
-               return child; 
+               // return child; 
          } 
 }
 
@@ -305,7 +305,6 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINE
 
   GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
-                     cout<<"LB: "<<n.lb<<"\n";
     this->numChildren = n.left.size();
   }
 
@@ -313,7 +312,8 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINE
 
 auto parent = n.get();
 auto flowshop = space.get();
-   FSPNode<NUMMACHINES> child = boundAndCreateNode(parent, flowshop, pos);
+   FSPNode<NUMMACHINES> child;
+    boundAndCreateNode(parent, flowshop, pos, child);
     ++pos;
    //  cout<<"LB: "<< child.lb<<"\n";
     return child;
@@ -485,7 +485,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
          cout << "\n";
       cout << "Execution time: " << executionTime.count() << " microseconds" << endl;
       cout << "BnB time: " << branchingTime.count() << " microseconds" << endl;
-      cout << "Nodes created: " << nodesProcessed << endl;
+      cout << "Nodes bound: " << nodesProcessed << endl;
       return hpx::finalize();
    }
 

@@ -309,7 +309,6 @@ void solve(FSPspace* flowshop){
       // if there are more than 1 jobs left
       if (node->left.size() > 1){
         if(node->lb < ub){
-            cout<<"LB: "<<node->lb<<"\n";
             for (int j = 0; j<node->left.size(); j++){
                Node *child = boundAndCreateNode(node, flowshop, j);
                if (child!=NULL){
@@ -351,7 +350,7 @@ void solve(FSPspace* flowshop){
       auto duration = duration_cast<microseconds>(stop - start); 
   
       cout << "Execution time: " << duration.count() << " microseconds" << endl;
-      cout << "Nodes created: " << nodesProcessed << endl; 
+      cout << "Nodes bounded: " << nodesProcessed << endl; 
       cout << "Makespan counting time:" <<makespanCountTime.count() << " microseconds" << endl; 
       cout << "Branching time: " << branchingTime.count() << " microseconds" << endl; 
       cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
