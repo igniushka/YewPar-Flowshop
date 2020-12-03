@@ -202,7 +202,7 @@ FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSP
 
 }
 
-void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j, FSPNode<NUMMACHINES> &child){
+void boundAndCreateNode(const FSPNode<NUMMACHINES> &node, const FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j, FSPNode<NUMMACHINES> &child){
             nodesProcessed++;
             auto bnbStart = high_resolution_clock::now();
             auto boundAStart = high_resolution_clock::now();
@@ -307,13 +307,20 @@ void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOB
 }
 
 struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINES, NUMJOBS>> {
-  std::vector<int> items;
+  std::vector<FSPNode<NUMMACHINES>&> nodes;
   int pos;
   std::reference_wrapper<const FSPspace<NUMMACHINES, NUMJOBS>> space;
   std::reference_wrapper<const FSPNode<NUMMACHINES>> n;
 
   GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
+         for (int i = 0; i<n.left.size(); i++){
+            FSPNode<NUMMACHINES> child;
+             boundAndCreateNode(n, space, pos, child);
+             nodes.push_back(child);
+         }
+         sort(nodes, )
+
     this->numChildren = n.left.size();
   }
 
