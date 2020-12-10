@@ -185,6 +185,7 @@ int johnsonsRule(const vector<int> &jobsLeft, FSPspace  *flowshop, int machine1,
       completion[0]+=flowshop->operations[machine1][jobIndex];
       completion[1] = max(completion[0], completion[1]) + length;
    }
+   cout<<"Johnsons number: "<<completion[1]<<"\n";
    return  completion[1];
 }
 
@@ -222,14 +223,21 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             for (int m = 1; m < flowshop->machines; m++){
                //update c1 with the new job times
                c1[m] = max(c1[m-1], node->c1[m]) + flowshop->operations[m][job];
-               //if childs o2 is empty
-               if (node->s2.empty()){
-                  bounds.push_back(c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
-               } else {
-                  bounds.push_back(c1[m] + newMsum[m] + node->c2[m]);
-               }
+            }
+
+            for (int k = 0; k<flowshop->machines-1; k++){
+                  for (int l = k+1; l < flowshop->machines; l++){
+   
+                  //if childs o2 is empty
+                  if (node->s2.empty()){
+                    bounds.push_back(c1[k] + johnsonsRule(left, flowshop, k, l) + getMinQ(&left, flowshop, l));
+                  } else {
+                    bounds.push_back(c1[k] + johnsonsRule(left, flowshop, k, l) + node->c2[l]);
+                  }
+                  }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
+            cout<<"lb: "<<lb<<"\n";
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             // cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
@@ -271,14 +279,19 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             for (int m = flowshop->machines-2; m >= 0; m--){
                //update c2 with the new job times
                c2[m] = max(c2[m+1], node->c2[m]) + flowshop->operations[m][job];
+            }
+            for (int k = 0; k<flowshop->machines-1; k++){
+                  for (int l = k+1; l < flowshop->machines; l++){
                //if childs o1 is empty
                if (node->s1.empty()){
-                  bounds.push_back(c2[m] + newMsum[m] + getMinR(&left, flowshop, m));
+                  bounds.push_back(c2[k] + johnsonsRule(left, flowshop, k, l) + getMinR(&left, flowshop, l));
                } else {
-                  bounds.push_back(c2[m] + newMsum[m] + node->c1[m]);
+                  bounds.push_back(c2[k] + johnsonsRule(left, flowshop, k, l) + node->c1[l]);
                }
+                  }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
+            cout<<"lb: "<<lb<<"\n";
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             if (lb < ub){
                auto boundBStart = high_resolution_clock::now();
