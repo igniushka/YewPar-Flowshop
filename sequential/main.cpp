@@ -9,6 +9,7 @@
 #include <list>
 #include <string>
 #include <bits/stdc++.h>
+#include <tuple>
 #include <vector>
 #include <stack> 
 using namespace std::chrono; 
@@ -148,6 +149,43 @@ void deleteNode(Node* node){
    delete [] node->c2;
    delete [] node->mSum;
    delete(node);
+}
+
+
+int johnsonsRule(const vector<int> &jobsLeft, FSPspace  *flowshop, int machine1, int machine2){
+   // vector <value, jobIndex> seq;
+   vector<tuple<int,int>> seq1;
+   vector<tuple<int,int>> seq2;
+
+   for (int jobIndex: jobsLeft){
+      if (flowshop->operations[machine1][jobIndex] <= flowshop->operations[machine2][jobIndex]){
+         seq1.push_back(make_tuple(flowshop->operations[machine1][jobIndex], jobIndex));
+      } else {
+         seq2.push_back(make_tuple(flowshop->operations[machine2][jobIndex], jobIndex));
+      }
+   }
+
+   //sort both sequences
+   sort(seq1.begin(), seq1.end());
+   //reverse sort
+   sort(seq2.rbegin(), seq2.rend());
+
+   int completion [2] = {0, 0};
+   int length, jobIndex;
+
+   //set initial sequence, length = m1 length
+   for (auto tuple : seq1){
+      tie(length, jobIndex) = tuple;
+      completion[0]+=length;
+      completion[1] = max(completion[0], completion[1]) + flowshop->operations[machine2][jobIndex];
+   }
+   //set final sequence, length = m2 length
+   for (auto tuple : seq2){
+      tie(length, jobIndex) = tuple;
+      completion[0]+=flowshop->operations[machine1][jobIndex];
+      completion[1] = max(completion[0], completion[1]) + length;
+   }
+   return  completion[1];
 }
 
 Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
