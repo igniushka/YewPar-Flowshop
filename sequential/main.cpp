@@ -185,7 +185,7 @@ int johnsonsRule(const vector<int> &jobsLeft, FSPspace  *flowshop, int machine1,
       completion[0]+=flowshop->operations[machine1][jobIndex];
       completion[1] = max(completion[0], completion[1]) + length;
    }
-   cout<<"Johnsons number: "<<completion[1]<<"\n";
+   // cout<<"Johnsons number: "<<completion[1]<<"\n";
    return  completion[1];
 }
 
@@ -237,7 +237,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                   }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            cout<<"lb: "<<lb<<"\n";
+            // cout<<"lb: "<<lb<<"\n";
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             // cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
@@ -257,6 +257,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child;
             } else {
+                cout<<lb<<" <-LB  Pruning\n";
                delete [] newMsum;
                delete [] c1;
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
@@ -284,14 +285,14 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                   for (int l = k+1; l < flowshop->machines; l++){
                //if childs o1 is empty
                if (node->s1.empty()){
-                  bounds.push_back(c2[k] + johnsonsRule(left, flowshop, k, l) + getMinR(&left, flowshop, l));
+                  bounds.push_back(c2[l] + johnsonsRule(left, flowshop, k, l) + getMinR(&left, flowshop, k));
                } else {
-                  bounds.push_back(c2[k] + johnsonsRule(left, flowshop, k, l) + node->c1[l]);
+                  bounds.push_back(c2[l] + johnsonsRule(left, flowshop, k, l) + node->c1[k]);
                }
                   }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            cout<<"lb: "<<lb<<"\n";
+            // cout<<"lb: "<<lb<<"\n";
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             if (lb < ub){
                auto boundBStart = high_resolution_clock::now();
@@ -310,6 +311,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child; 
             } else {
+               cout<<lb<<" <-LB  Pruning\n";
                delete [] newMsum;
                delete [] c2;
                 boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
