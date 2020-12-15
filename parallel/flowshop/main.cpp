@@ -194,117 +194,19 @@ int getMinR(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS>  &flowshop, in
    return *min_element(values.begin(), values.end());
 }
 
-FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & node){
-   vector<int> candidate;
-   candidate.assign(node.s1.begin(), node.s1.end());
-   std::copy(node.s2.begin(), node.s2.end(), std::back_inserter(candidate));
-   return FSPSolution{candidate, calculateSequence(&candidate, &space)};
 
+FSPSolution makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, FSPNode<NUMMACHINES> & node){
+   for (int job: node.s2){
+      node.s1.push_back(job);
+          node.c1[0] = node.c1[0] + space.operations[0][job];
+            for (int m = 1; m < space.machines; m++){
+               node.c1[m] = max(node.c1[m-1], node.c1[m]) + space.operations[m][job];
+            }
+   }
+   unsigned makaespan = node.c1[space.machines -1];
+   return FSPSolution{node.s1, makaespan};
 }
 
-// void boundAndCreateNode(FSPNode<NUMMACHINES> &node, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int j, FSPNode<NUMMACHINES> &child){
-//             nodesProcessed++;
-//             auto bnbStart = high_resolution_clock::now();
-//             auto boundAStart = high_resolution_clock::now();
-//             int job = node.left[j];
-//             int depth = node.depth + 1;
-//             auto startBound=high_resolution_clock::now();
-//             auto otherOPTime = high_resolution_clock::now();
-//             vector<int>bounds;
-//             array<int, NUMMACHINES> newMsum;
-//             vector<int>left = node.left;
-//             left.erase(left.begin()+j);
-//             for (int m = 0; m<flowshop.machines; m++){
-//                newMsum[m] = node.mSum[m] - flowshop.operations[m][job];
-//             }
-//             if (depth % 2 == 1){ // (o1 j, o2)
-//             array<int, NUMMACHINES> c1;
-//             c1[0] = node.c1[0] + flowshop.operations[0][job];
-//             //Machine 1 bound
-//             if (node.s2.empty()){
-//                bounds.push_back(newMsum[0] + getMinQ(left, flowshop, 0));
-//             } else {
-//                bounds.push_back(newMsum[0] + node.c2[0]); 
-//             }
-//             //bounds for the rest of machines
-//             for (int m = 1; m < flowshop.machines; m++){
-//                //update c1 with the new job times
-//                c1[m] = max(c1[m-1], node.c1[m]) + flowshop.operations[m][job];
-//                //if childs o2 is empty
-//                if (node.s2.empty()){
-//                   bounds.push_back(c1[m] + newMsum[m] + getMinQ(left, flowshop, m));
-//                } else {
-//                   bounds.push_back(c1[m] + newMsum[m] + node.c2[m]);
-//                }
-//             }
-//             int lb = *max_element(bounds.begin(), bounds.end());
-//             boundAtime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-//             auto boundBStart = high_resolution_clock::now();
-
-//                // FSPNode<NUMMACHINES> child;
-//                child.s2 = node.s2;
-//                child.s1 = node.s1;
-//                child.s1.push_back(job);
-//                 child.c1=c1;
-//                 child.c2 = node.c2;
-//                child.mSum = newMsum;
-//                child.left = left;
-//                child.lb =lb;
-//                child.depth = depth;
-//                if(child.left.size() == 0){
-//                    child.sol = makeSolution(flowshop, child);
-//                } else {
-//                   child.sol.makespan = INT_MAX;
-//                }
-//                boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
-//                branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
-//                // return child;
-//             }else{  // (o1, j o2)
-//                array<int, NUMMACHINES> c2;
-//                c2[flowshop.machines-1] = node.c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
-
-//                //machine m bound
-//                if (node.s1.empty()){
-//                   auto seq0start = high_resolution_clock::now();
-//                   bounds.push_back(newMsum[flowshop.machines-1] + getMinQ(left, flowshop, flowshop.machines-1));
-//                   partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
-//                } else {
-//                   bounds.push_back(newMsum[flowshop.machines-1] + node.c1[flowshop.machines-1]); 
-//                   }
-//             //machines m-1 -> 1 bounds
-//             for (int m = flowshop.machines-2; m >= 0; m--){
-//                //update c2 with the new job times
-//                c2[m] = max(c2[m+1], node.c2[m]) + flowshop.operations[m][job];
-//                //if childs o1 is empty
-//                if (node.s1.empty()){
-//                   bounds.push_back(c2[m] + newMsum[m] + getMinR(left, flowshop, m));
-//                } else {
-//                   bounds.push_back(c2[m] + newMsum[m] + node.c1[m]);
-//                }
-//             }
-//             int lb = *max_element(bounds.begin(), bounds.end());
-//                boundAtime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-//                auto boundBStart = high_resolution_clock::now();
-//                // FSPNode<NUMMACHINES> child;
-//                child.s1 = node.s1;
-//                child.s2 = node.s2;
-//                child.s2.insert(child.s2.begin(), job);
-//                child.c2 = c2;
-//                child.c1 = node.c1;  //can rely on parent c1
-//                child.mSum = newMsum;
-//                child.left = left;
-//                child.lb = lb;
-//                child.depth = depth;
-//                if(child.left.size() == 0){
-//                    child.sol = makeSolution(flowshop, child);
-//                } else {
-//                   child.sol.makespan = INT_MAX;
-//                }
-//                boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
-//                branchingTime += duration_cast<microseconds>(high_resolution_clock::now() - bnbStart);
-//                // return child; 
-//          } 
-// }
 
 struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINES, NUMJOBS>> {
   std::vector<int> items;
@@ -332,6 +234,8 @@ auto flowshop = space.get();
             array<int, NUMMACHINES> newMsum;
             vector<int>left = node.left;
             left.erase(left.begin()+pos);
+            if (left.size() > 1){
+
             for (int m = 0; m<flowshop.machines; m++){
                newMsum[m] = node.mSum[m] - flowshop.operations[m][job];
             }
@@ -425,7 +329,46 @@ auto flowshop = space.get();
                return child; 
          } 
 
-
+  } else if (left.size() == 0) {
+      FSPNode<NUMMACHINES> child;
+         array<int, NUMMACHINES> c1;
+         c1[0] = node.c1[0] + flowshop.operations[0][job];
+         for (int m = 1; m < flowshop.machines; m++){
+            c1[m] = max(c1[m-1], node.c1[m]) + flowshop.operations[m][job];
+         }
+         child.s2 = node.s2;
+         child.s1 = node.s1;
+         child.s1.push_back(job);
+         child.c1=c1;
+         child.c2 = node.c2;
+         child.mSum = newMsum;
+         child.left = left;
+         child.lb = 0;
+         child.depth = depth;
+         child.sol = makeSolution(space, child);
+          ++pos;
+          return child;
+  }
+   else if (left.size() == 1) {
+      FSPNode<NUMMACHINES> child;
+            array<int, NUMMACHINES> c1;
+            c1[0] = node.c1[0] + flowshop.operations[0][job];
+            for (int m = 1; m < flowshop.machines; m++){
+               c1[m] = max(c1[m-1], node.c1[m]) + flowshop.operations[m][job];
+            }
+               child.s2 = node.s2;
+               child.s1 = node.s1;
+               child.s1.push_back(job);
+                child.c1=c1;
+                child.c2 = node.c2;
+               child.mSum = newMsum;
+               child.left = left;
+               child.lb = 0;
+               child.sol.makespan = INT_MAX;
+               child.depth = depth;
+          ++pos;
+          return child;
+  }
    //  cout<<"LB: "<< child.lb<<"\n";
   }
 };
