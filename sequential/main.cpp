@@ -23,7 +23,7 @@ using namespace std;
    auto boundATime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto boundBTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
 
-   int nodesProcessed = 0;
+   int nodesDecomposed = 0;
    int seq0 = 0;
    int ub = 999999;
   
@@ -151,7 +151,6 @@ void deleteNode(Node* node){
 }
 
 Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
-            nodesProcessed++;
             auto boundingStart = high_resolution_clock::now();
             auto boundAStart = high_resolution_clock::now();
             int job = node->left[j];
@@ -317,6 +316,7 @@ void solve(FSPspace* flowshop){
       // if there are more than 1 jobs left
       if (node->left.size() > 1){
         if(node->lb < ub){
+           nodesDecomposed++;
             for (int j = 0; j<node->left.size(); j++){
                Node *child = boundAndCreateNode(node, flowshop, j);
                if (child!=NULL){
@@ -350,7 +350,6 @@ void solve(FSPspace* flowshop){
       if (makespan < ub){
             ub = makespan;
             solution.assign(candiate.begin(), candiate.end());
-            cout<<"\nNEW SOLUTION: "<<ub<<"\n";
             }
          } 
       }
@@ -358,14 +357,7 @@ void solve(FSPspace* flowshop){
       auto duration = duration_cast<microseconds>(stop - start); 
   
       cout << "Execution time: " << duration.count() << " microseconds" << endl;
-      cout << "Nodes bounded: " << nodesProcessed << endl; 
-      cout << "Makespan counting time:" <<makespanCountTime.count() << " microseconds" << endl; 
-      cout << "Bounding time: " << boundingTime.count() << " microseconds" << endl; 
-      cout << "Bounding A time: " << boundATime.count() << " microseconds" << endl; 
-      cout << "Bounding B time: " << boundBTime.count() << " microseconds" << endl; 
-      cout << "Bounding calculation time: " << boundCalculationTime.count() << " microseconds" << endl; 
-      cout << "Bounding partial seq calculation time: " << partialSeq0Time.count() << " microseconds" << endl;       
-      cout << "Bounding other OP time: " << otherBoundOperationsTime.count() << " microseconds" << endl; 
+      cout << "Nodes decomposed: " << nodesDecomposed << endl; 
       cout << "Optimal makespan: " << ub <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < solution.size(); i++) cout << solution[i] + 1 << " ";
          cout << "\n";
@@ -404,7 +396,6 @@ FSPspace* parseFile(string fileName){
    file.open(fileName);
    FSPspace* flowshop = new FSPspace;
    if (file){ 
-      printf("file exists\n");
        if (file.is_open()){
          string line;
          getline(file, line);  // get the first line containing two values: number of jobs and number of machines
