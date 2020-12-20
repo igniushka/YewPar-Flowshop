@@ -49,7 +49,7 @@ using namespace std;
    auto boundAtime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto boundBTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
 
-   int nodesDecomposed = 0;
+   unsigned long long int nodesDecomposed = 0;
 
 struct JobLength{
    int index;

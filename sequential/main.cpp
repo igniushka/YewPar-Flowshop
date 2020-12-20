@@ -23,8 +23,7 @@ using namespace std;
    auto boundATime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
    auto boundBTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
 
-   int nodesDecomposed = 0;
-   int seq0 = 0;
+   unsigned long long int nodesDecomposed = 0;
    int ub = 999999;
   
 
