@@ -92,6 +92,11 @@ struct FSPNode {
     ar & left;
     ar & s1;
     ar & s2;
+    ar & lb;
+    ar & depth;
+    ar & c1;
+    ar & c2;
+    ar & mSum;
   }
 };
 template <unsigned M, unsigned N>
@@ -107,8 +112,8 @@ struct FSPspace {
     ar & machines;
     ar & jobs;
     ar & operations;
-    ar & jobBackwardSum;
     ar & jobForwardSum;
+    ar & jobBackwardSum;
   }
 
 };
