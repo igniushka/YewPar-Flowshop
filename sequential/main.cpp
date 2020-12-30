@@ -3,6 +3,7 @@
 #include<iostream>
 #include <fstream>
 #include <array>
+#include <map>
 #include <sstream>
 #include <algorithm>
 #include <iterator>
@@ -57,6 +58,7 @@ struct FSPspace {
   int** operations;
   int** jobForwardSum;
   int** jobBackwardSum;
+  map<tuple<unsigned, unsigned>, vector<int>> jMap;
 };
 
 
@@ -149,6 +151,61 @@ void deleteNode(Node* node){
    delete [] node->c2;
    delete [] node->mSum;
    delete(node);
+}
+
+
+vector<int> johnsonsSequence(FSPspace  *flowshop, int machine1, int machine2){
+   vector<tuple<int,int>> seq1;
+   vector<tuple<int,int>> seq2;
+   int jobIndex;
+   vector<int> johnsonSchedule;
+
+   for (int jobIndex = 0; jobIndex < flowshop->jobs; jobIndex++){
+      if (flowshop->operations[machine1][jobIndex] <= flowshop->operations[machine2][jobIndex]){
+         seq1.push_back(make_tuple(flowshop->operations[machine1][jobIndex], jobIndex));
+      } else {
+         seq2.push_back(make_tuple(flowshop->operations[machine2][jobIndex], jobIndex));
+      }
+   }
+
+   //sort both sequences
+   sort(seq1.begin(), seq1.end());
+   //reverse sort
+   sort(seq2.rbegin(), seq2.rend());
+
+
+   for (auto tuple : seq1){
+      tie(ignore, jobIndex) = tuple;
+      johnsonSchedule.push_back(jobIndex);
+   }
+
+   for (auto tuple : seq2){
+      tie(ignore, jobIndex) = tuple;
+      johnsonSchedule.push_back(jobIndex);
+   }
+   
+   return johnsonSchedule;
+}
+
+int getJohnsonsNumber(const vector<int> &jobsLeft, FSPspace  *flowshop, int machine1, int machine2){
+   int diff = flowshop->jobs - jobsLeft.size();
+   vector<int> full = flowshop->jMap.at(make_tuple(machine1, machine2));
+   int index = 0;
+   while (diff != 0 && index < full.size()){
+      int job = full.at(index);
+      if (!binary_search(jobsLeft.begin(), jobsLeft.end(), job)){
+         full.erase(full.begin()+index);
+         diff--;
+      } else {
+         index++;
+      }
+   }
+   int completion [2] = {0, 0};
+   for (int jobIndex: full){
+      completion[0]+=flowshop->operations[machine1][jobIndex];
+      completion[1] = max(completion[0], completion[1]) + flowshop->operations[machine2][jobIndex];
+   }
+   return completion[1];
 }
 
 
@@ -246,9 +303,9 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                   }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-            // cout<<"lb: "<<lb<<"\n";
+               // cout<<"lb: "<<lb<<"\n";
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-            // cout<<"LB: "<< lb<<"\n";
+            //  cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
                auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
@@ -311,7 +368,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                   }
             }
             int lb = *max_element(bounds.begin(), bounds.end());
-             cout<<"lb: "<<lb<<"\n";
+            //   cout<<"lb: "<<lb<<"\n";
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             if (lb < ub){
                auto boundBStart = high_resolution_clock::now();
@@ -469,6 +526,16 @@ int* parseLine(string line, int expected){
 }
 
 
+void setJohnsonsRules(FSPspace* flowshop){
+   for (int k = 0; k< flowshop->machines - 1; k++){
+      for (int l = k+1; l < flowshop->machines; l++){
+         flowshop->jMap[make_tuple(k, l)] = johnsonsSequence(flowshop, k, l);
+      }
+   }
+
+}
+
+
 FSPspace* parseFile(string fileName){
    int* chunks;
    ifstream file;
@@ -521,6 +588,7 @@ FSPspace* parseFile(string fileName){
             }
                cout<<"\n";
             }
+            setJohnsonsRules(flowshop);
             return flowshop;
 
       } else {

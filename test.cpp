@@ -10,8 +10,8 @@ using namespace std;
 
  int johnsonsRule() {
    // vector <value, jobIndex> seq;
-   int operations [2] [5] = {{10, 6, 8, 8, 12},{6, 12, 9, 10, 5}};
-   vector<int> jobsLeft = {1, 4, 3, 0, 2};
+   int operations [2] [9] = {{5, 3, 8, 10, 7, 4, 11, 1, 9 },{2, 6, 4, 7, 12, 5, 1, 15, 4}};
+   vector<int> jobsLeft = {1, 4, 3, 2, 5, 6, 7, 8};
    vector<tuple<int,int>> seq1;
    vector<tuple<int,int>> seq2;
 
