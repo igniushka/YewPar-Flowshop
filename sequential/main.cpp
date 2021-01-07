@@ -191,7 +191,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             }
             int lb = *max_element(bounds.begin(), bounds.end());
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-            cout<<"LB: "<< lb<<"\n";
+            // cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
                auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
@@ -209,7 +209,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child;
             } else {
-               cout<<"PRUNED\n";
+               // cout<<"PRUNED\n";
                delete [] newMsum;
                delete [] c1;
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
@@ -241,7 +241,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             }
             int lb = *max_element(bounds.begin(), bounds.end());
                boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-               cout<<"LB: "<< lb<<"\n";
+               // cout<<"LB: "<< lb<<"\n";
             if (lb < ub){
                auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
@@ -259,7 +259,7 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child; 
             } else {
-               cout<<"PRUNED\n";
+               // cout<<"PRUNED\n";
                delete [] newMsum;
                delete [] c2;
                 boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
@@ -276,7 +276,7 @@ void solve(FSPspace* flowshop){
    //initialize problem
    vector<int> solution;
    auto upperBoundstart = high_resolution_clock::now();
-   //  tie(solution, ub) = initilizeUpperBound(flowshop);
+   tie(solution, ub) = initilizeUpperBound(flowshop);
    auto upperBoundTime = duration_cast<microseconds>(high_resolution_clock::now() - upperBoundstart);
 
    cout <<"UB seq: ";
@@ -338,7 +338,7 @@ void solve(FSPspace* flowshop){
          deleteNode(node);
          otherBoundOperationsTime+=duration_cast<microseconds>(high_resolution_clock::now() - otherOPTime);
         } else {
-            cout<<"PRUNED LATER\n";
+            // cout<<"PRUNED LATER\n";
            deleteNode(node);
         }
       } else { // if one node is left
@@ -352,6 +352,7 @@ void solve(FSPspace* flowshop){
       deleteNode(node);
       if (makespan < ub){
             ub = makespan;
+            cout<<"NEW SOL: "<<ub<<"\n";
             solution.assign(candiate.begin(), candiate.end());
             }
          } 
