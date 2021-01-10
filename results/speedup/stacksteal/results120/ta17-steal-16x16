@@ -1,0 +1,30 @@
+jobs: 20 machines:10
+64 44 58 7 69 12 5 69 46 23 95 24 58 88 46 65 31 84 4 73 
+43 97 49 2 54 12 31 52 29 98 46 83 78 52 63 66 45 49 21 13 
+9 87 3 15 55 5 8 94 60 18 20 65 50 76 75 7 82 49 3 56 
+38 85 29 26 23 28 19 10 72 33 21 79 55 69 38 15 58 36 11 98 
+2 74 16 21 10 98 74 84 55 19 20 37 90 76 10 81 27 52 21 1 
+79 18 99 75 47 96 6 22 3 29 12 53 42 61 49 56 9 6 54 57 
+16 95 26 25 71 50 38 15 85 20 25 67 7 12 50 8 82 5 9 41 
+85 77 74 17 38 42 20 68 93 15 28 91 32 56 70 51 9 94 63 33 
+89 6 41 22 68 83 79 69 44 64 77 46 76 64 25 55 30 89 96 71 
+69 88 24 41 53 8 58 19 50 21 43 18 74 50 20 81 98 92 21 83 
+stacksteal skeleton
+INITIAL BOUND = 1562
+INITIAL BOUND = 1562
+INITIAL BOUND = 1562
+Optimal makespan: 1484
+Optimal job scheduling order: 4 19 7 1 6 17 13 18 9 12 5 20 2 10 16 11 3 14 8 15 
+Execution time: 276340697 microseconds
+Nodes decomposed: 61632254
+
+===================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   PID 7580 RUNNING AT gpgnode-07
+=   EXIT CODE: 139
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+===================================================================================
+YOUR APPLICATION TERMINATED WITH THE EXIT STRING: Segmentation fault (signal 11)
+This typically refers to a problem with your application.
+Please see the FAQ page for debugging suggestions
