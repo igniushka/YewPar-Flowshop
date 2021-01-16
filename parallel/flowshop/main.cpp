@@ -219,7 +219,8 @@ auto node = n.get();
 auto flowshop = space.get();
             int job = node.left[pos];
             int depth = node.depth + 1;
-            vector<int>bounds;
+            // vector<int>bounds;
+            int bound = INT_MIN;
             array<int, NUMMACHINES> newMsum;
             vector<int>left = node.left;
             left.erase(left.begin()+pos);
@@ -231,9 +232,9 @@ auto flowshop = space.get();
             c1[0] = node.c1[0] + flowshop.operations[0][job];
             //Machine 1 bound
             if (node.s2.empty()){
-               bounds.push_back(newMsum[0] + getMinQ(left, flowshop, 0));
+               bound = max(bound, newMsum[0] + getMinQ(left, flowshop, 0));
             } else {
-               bounds.push_back(newMsum[0] + node.c2[0]); 
+               bound = max(bound, newMsum[0] + node.c2[0]);
             }
             //bounds for the rest of machines
             for (int m = 1; m < flowshop.machines; m++){
@@ -241,12 +242,11 @@ auto flowshop = space.get();
                c1[m] = max(c1[m-1], node.c1[m]) + flowshop.operations[m][job];
                //if childs o2 is empty
                if (node.s2.empty()){
-                  bounds.push_back(c1[m] + newMsum[m] + getMinQ(left, flowshop, m));
+                  bound = max(bound, c1[m] + newMsum[m] + getMinQ(left, flowshop, m));
                } else {
-                  bounds.push_back(c1[m] + newMsum[m] + node.c2[m]);
+                  bound = max(bound, c1[m] + newMsum[m] + node.c2[m]);
                }
             }
-            int lb = *max_element(bounds.begin(), bounds.end());
                FSPNode<NUMMACHINES> child;
                child.s2 = node.s2;
                child.s1 = node.s1;
@@ -255,7 +255,7 @@ auto flowshop = space.get();
                child.c2 = node.c2;
                child.mSum = newMsum;
                child.left = left;
-               child.lb =lb;
+               child.lb =bound;
                child.depth = depth;
                if(child.left.size() == 0){
                    makeSolution(flowshop, child);
@@ -270,9 +270,9 @@ auto flowshop = space.get();
 
                //machine m bound
                if (node.s1.empty()){
-                  bounds.push_back(newMsum[flowshop.machines-1] + getMinQ(left, flowshop, flowshop.machines-1));
+                  bound = max(bound, newMsum[flowshop.machines-1] + getMinQ(left, flowshop, flowshop.machines-1));
                } else {
-                  bounds.push_back(newMsum[flowshop.machines-1] + node.c1[flowshop.machines-1]); 
+                  bound = max(bound, newMsum[flowshop.machines-1] + node.c1[flowshop.machines-1]);
                   }
             //machines m-1 -> 1 bounds
             for (int m = flowshop.machines-2; m >= 0; m--){
@@ -280,12 +280,11 @@ auto flowshop = space.get();
                c2[m] = max(c2[m+1], node.c2[m]) + flowshop.operations[m][job];
                //if childs o1 is empty
                if (node.s1.empty()){
-                  bounds.push_back(c2[m] + newMsum[m] + getMinR(left, flowshop, m));
+                  bound = max(bound, c2[m] + newMsum[m] + getMinR(left, flowshop, m));
                } else {
-                  bounds.push_back(c2[m] + newMsum[m] + node.c1[m]);
+                  bound = max(bound, c2[m] + newMsum[m] + node.c1[m]);
                }
             }
-            int lb = *max_element(bounds.begin(), bounds.end());
                FSPNode<NUMMACHINES> child;
                child.s1 = node.s1;
                child.s2 = node.s2;
@@ -294,7 +293,7 @@ auto flowshop = space.get();
                child.c1 = node.c1;  //can rely on parent c1
                child.mSum = newMsum;
                child.left = left;
-               child.lb = lb;
+               child.lb = bound;
                child.depth = depth;
                if(child.left.size() == 0){
                    makeSolution(flowshop, child);

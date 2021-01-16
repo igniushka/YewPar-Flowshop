@@ -1,3 +1,4 @@
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include<iostream>
@@ -150,13 +151,14 @@ void deleteNode(Node* node){
 }
 
 Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
-            auto boundingStart = high_resolution_clock::now();
-            auto boundAStart = high_resolution_clock::now();
+            // auto boundingStart = high_resolution_clock::now();
+            // auto boundAStart = high_resolution_clock::now();
             int job = node->left[j];
             int depth = node->depth + 1;
-            auto startBound=high_resolution_clock::now();
-            auto otherOPTime = high_resolution_clock::now();
-            vector<int>bounds;
+            // auto startBound=high_resolution_clock::now();
+            // auto otherOPTime = high_resolution_clock::now();
+            // vector<int>bounds;
+            int bound = INT_MIN;
             int *newMsum = new int [flowshop->machines];
             vector<int>left = node->left;
             left.erase(left.begin()+j);
@@ -172,11 +174,12 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
 
             //Machine 1 bound
             if (node->s2.empty()){
-               auto seq0start = high_resolution_clock::now();
-               bounds.push_back(newMsum[0] + getMinQ(&left, flowshop, 0));
-               partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
+               // auto seq0start = high_resolution_clock::now();
+               // bounds.push_back(newMsum[0] + getMinQ(&left, flowshop, 0));
+               bound = max(bound, newMsum[0] + getMinQ(&left, flowshop, 0));
             } else {
-               bounds.push_back(newMsum[0] + node->c2[0]); 
+               // bounds.push_back(newMsum[0] + node->c2[0]); 
+               bound = max(bound, newMsum[0] + node->c2[0]);
             }
             //bounds for the rest of machines
             for (int m = 1; m < flowshop->machines; m++){
@@ -184,15 +187,17 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                c1[m] = max(c1[m-1], node->c1[m]) + flowshop->operations[m][job];
                //if childs o2 is empty
                if (node->s2.empty()){
-                  bounds.push_back(c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
+                  // bounds.push_back(c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
+                  bound = max(bound, c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
                } else {
-                  bounds.push_back(c1[m] + newMsum[m] + node->c2[m]);
+                  // bounds.push_back(c1[m] + newMsum[m] + node->c2[m]);
+                  bound = max(bound, c1[m] + newMsum[m] + node->c2[m]);
                }
             }
-            int lb = *max_element(bounds.begin(), bounds.end());
-               boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
+            // int lb = *max_element(bounds.begin(), bounds.end());
+               // boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
             // cout<<"LB: "<< lb<<"\n";
-            if (lb < ub){
+            if (bound < ub){
                auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
                child->s2 = node->s2;
@@ -203,16 +208,16 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                std::memcpy(child->c2, node->c2, sizeof(int)*flowshop->machines); //can rely on parent c1
                child->mSum = newMsum;
                child->left = left;
-               child->lb =lb;
+               child->lb =bound;
                child->depth = depth;
-               boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
-               boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
+               // boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
+               // boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child;
             } else {
                // cout<<"PRUNED\n";
                delete [] newMsum;
                delete [] c1;
-               boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
+               // boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return NULL;
             }
 
@@ -222,11 +227,13 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
 
                //machine m bound
                if (node->s1.empty()){
-                  auto seq0start = high_resolution_clock::now();
-                  bounds.push_back(newMsum[flowshop->machines-1] + getMinQ(&left, flowshop, flowshop->machines-1));
-                  partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
+                  // auto seq0start = high_resolution_clock::now();
+                  // bounds.push_back(newMsum[flowshop->machines-1] + getMinQ(&left, flowshop, flowshop->machines-1));
+                  // partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
+                  bound = max(bound, newMsum[flowshop->machines-1] + getMinQ(&left, flowshop, flowshop->machines-1));
                } else {
-                  bounds.push_back(newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]); 
+                  // bounds.push_back(newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]); 
+                  bound = max(bound, newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]);
                   }
             //machines m-1 -> 1 bounds
             for (int m = flowshop->machines-2; m >= 0; m--){
@@ -234,15 +241,17 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                c2[m] = max(c2[m+1], node->c2[m]) + flowshop->operations[m][job];
                //if childs o1 is empty
                if (node->s1.empty()){
-                  bounds.push_back(c2[m] + newMsum[m] + getMinR(&left, flowshop, m));
+                  // bounds.push_back(c2[m] + newMsum[m] + getMinR(&left, flowshop, m));
+                  bound = max(bound, c2[m] + newMsum[m] + getMinR(&left, flowshop, m));
                } else {
-                  bounds.push_back(c2[m] + newMsum[m] + node->c1[m]);
+                  // bounds.push_back(c2[m] + newMsum[m] + node->c1[m]);
+                  bound = max(bound, c2[m] + newMsum[m] + node->c1[m]);
                }
             }
-            int lb = *max_element(bounds.begin(), bounds.end());
-               boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
+            // int lb = *max_element(bounds.begin(), bounds.end());
+               // boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
                // cout<<"LB: "<< lb<<"\n";
-            if (lb < ub){
+            if (bound < ub){
                auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
                child->s1 = node->s1;
@@ -253,16 +262,16 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                std::memcpy(child->c1, node->c1, sizeof(int)*flowshop->machines); //can rely on parent c2
                child->mSum = newMsum;
                child->left = left;
-               child->lb = lb;
+               child->lb = bound;
                child->depth = depth;
-               boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
-               boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
+               // boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
+               // boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child; 
             } else {
                // cout<<"PRUNED\n";
                delete [] newMsum;
                delete [] c2;
-                boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
+               //  boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return NULL;
             }
 
