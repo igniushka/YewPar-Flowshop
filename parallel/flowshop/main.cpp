@@ -38,17 +38,6 @@
 
 using namespace std::chrono; 
 using namespace std;
-
-   auto start = high_resolution_clock::now(); 
-   auto branchingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto boundingTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto makespanCountTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto otherBoundOperationsTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto boundCalculationTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto partialSeq0Time = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());  
-   auto boundAtime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-   auto boundBTime = duration_cast<microseconds>(high_resolution_clock::now() - high_resolution_clock::now());
-
    unsigned long long int nodesDecomposed = 0;
 
 struct JobLength{
@@ -434,7 +423,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
       }
    } 
    auto sol = root;
-   auto executionStart = high_resolution_clock::now();
+   auto executionStart = std::chrono::steady_clock::now();
    YewPar::Skeletons::API::Params<unsigned> searchParameters;
    searchParameters.initialBound = initial.makespan;
 
@@ -480,7 +469,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
   }
 
 
-         auto executionTime = duration_cast<microseconds>(high_resolution_clock::now() - executionStart);
+         auto executionTime = duration_cast<microseconds>(std::chrono::steady_clock::now(); - executionStart);
          cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
          cout << "\n";
