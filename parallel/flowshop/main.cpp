@@ -111,32 +111,31 @@ bool compareJobLengths(JobLength j1, JobLength j2){
    return j1.length > j2.length;
 }
 
-unsigned calculateSequence(vector<int>* jobs, const FSPspace<NUMMACHINES, NUMJOBS>* flowshop){
-  int* completionTimes = new int [flowshop->machines];
-  for (int m = 0; m < flowshop->machines; m++){
+unsigned calculateSequence(vector<int> &jobs, const FSPspace<NUMMACHINES, NUMJOBS> &flowshop){
+  std::array<unsigned, NUMMACHINES> completionTimes;
+  for (int m = 0; m < flowshop.machines; m++){
      completionTimes[m] = 0;
   }
-   for (auto jobIndex: *jobs){
-      completionTimes[0]+= flowshop->operations[0][jobIndex];
-         for (int m = 1; m<flowshop->machines; m++){
-            completionTimes[m] = max(completionTimes[m-1], completionTimes[m]) + flowshop->operations[m][jobIndex];
+   for (auto jobIndex: jobs){
+      completionTimes[0]+= flowshop.operations[0][jobIndex];
+         for (int m = 1; m<flowshop.machines; m++){
+            completionTimes[m] = max(completionTimes[m-1], completionTimes[m]) + flowshop.operations[m][jobIndex];
    }
    }
-   int result = completionTimes[flowshop->machines-1];
-   delete [] completionTimes;
+   int result = completionTimes[flowshop.machines-1];
    return result;
 }
 
-tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled, FSPspace<NUMMACHINES, NUMJOBS> *flowshop){
+tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled, FSPspace<NUMMACHINES, NUMJOBS> &flowshop){
    vector<int> partial;
    vector<int> bestSequence;
    bestSequence.assign(scheduled.begin(), scheduled.end());
    bestSequence.insert(bestSequence.begin(), unscheduled);
-    unsigned best = calculateSequence(&bestSequence, flowshop);
+    unsigned best = calculateSequence(bestSequence, flowshop);
     for (int i = 1; i <= scheduled.size(); i++){
        partial.assign(scheduled.begin(), scheduled.end());
        partial.insert(partial.begin()+i, unscheduled);
-       int makespan = calculateSequence(&partial, flowshop);
+       int makespan = calculateSequence(partial, flowshop);
        if (makespan < best){
          best = makespan;
          bestSequence.assign(partial.begin(), partial.end());
@@ -145,23 +144,23 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
     return make_tuple(bestSequence, best);
 }
 
-   FSPSolution initilizeUpperBound(FSPspace<NUMMACHINES, NUMJOBS>* flowshop){
+   FSPSolution initilizeUpperBound(FSPspace<NUMMACHINES, NUMJOBS> &flowshop){
 
    vector<JobLength> jobLengths;
    vector<int> schedule;
-   for (int j = 0; j< flowshop->jobs; j++){
+   for (int j = 0; j< flowshop.jobs; j++){
       JobLength jobLength;
       jobLength.length = 0;
       jobLength.index = j;
-      for (int m = 0; m<flowshop->machines; m++){
-         jobLength.length+=flowshop->operations[m][j];
+      for (int m = 0; m<flowshop.machines; m++){
+         jobLength.length+=flowshop.operations[m][j];
          }
       jobLengths.push_back(jobLength);
    }
    sort(jobLengths.begin(), jobLengths.end(), compareJobLengths);
    schedule.push_back(jobLengths.at(0).index);
    unsigned best;
-   for (int i = 1; i < flowshop->jobs; i++){
+   for (int i = 1; i < flowshop.jobs; i++){
       int newBest;
       vector<int> seq;
      tie(seq, newBest) = findBestSequence(schedule, jobLengths.at(i).index, flowshop);
@@ -173,19 +172,21 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
 }
 
 int getMinQ(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS> &flowshop, int machine){
-   vector<int>values;
+   unsigned minvalue = INT_MAX;
    for (auto j: jobsLeft){
-      values.push_back(flowshop.jobBackwardSum[machine][j]);
+      unsigned candidate = flowshop.jobBackwardSum[machine][j];
+      if (candidate < minvalue) minvalue = candidate;
    }
-   return *min_element(values.begin(), values.end());
+   return minvalue;
 }
 
 int getMinR(vector<int> &jobsLeft, FSPspace<NUMMACHINES, NUMJOBS>  &flowshop, int machine){
-   vector<int>values;
+   unsigned minvalue = INT_MAX;
    for (auto j: jobsLeft){
-      values.push_back(flowshop.jobForwardSum[machine][j]);
+      unsigned candidate = flowshop.jobForwardSum[machine][j];
+      if (candidate < minvalue) minvalue = candidate;
    }
-   return *min_element(values.begin(), values.end());
+   return minvalue;
 }
 
 void makeSolution(const FSPspace<NUMMACHINES, NUMJOBS> & space, FSPNode<NUMMACHINES> & node){
@@ -209,7 +210,7 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES>, FSPspace<NUMMACHINE
   GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
       nodesDecomposed++;
-    this->numChildren = n.left.size();
+      this->numChildren = n.left.size();
   }
 
   FSPNode<NUMMACHINES> next() override {
@@ -250,8 +251,8 @@ auto flowshop = space.get();
                child.s2 = node.s2;
                child.s1 = node.s1;
                child.s1.push_back(job);
-                child.c1=c1;
-                child.c2 = node.c2;
+               child.c1=c1;
+               child.c2 = node.c2;
                child.mSum = newMsum;
                child.left = left;
                child.lb =lb;
@@ -303,9 +304,6 @@ auto flowshop = space.get();
                ++pos;
                return child; 
          } 
-
-
-   //  cout<<"LB: "<< child.lb<<"\n";
   }
 };
 
@@ -403,18 +401,14 @@ int hpx_main(boost::program_options::variables_map & opts) {
   auto inputFile = opts["input-file"].as<std::string>();
    auto skeletonType = opts["skeleton"].as<std::string>();
    FSPspace<NUMMACHINES, NUMJOBS> space = parseFile(inputFile);
+   auto executionStart = std::chrono::steady_clock::now();
    FSPNode<NUMMACHINES> root;
-   FSPSolution initial = initilizeUpperBound(&space);
-   vector<int> rootSol = {};
-   root.sol = initilizeUpperBound(&space);
-   root.depth = 0;
    //set o1, o2 makespans to 0 and initialize sum(Pkj) to 0
    for (int m = 0; m < space.machines; m++){
       root.mSum [m] = 0;
       root.c1 [m] = 0;
       root.c2 [m] = 0;
    }
-
    //set all sum(Pkj) unsheduled job sum times on all machines
    for (int j = 0; j < space.jobs; j++){ 
       root.left.push_back(j);
@@ -422,8 +416,10 @@ int hpx_main(boost::program_options::variables_map & opts) {
          root.mSum[m] += space.operations[m][j];
       }
    } 
+   FSPSolution initial = initilizeUpperBound(space);
+   root.sol = initial;
+   root.depth = 0;
    auto sol = root;
-   auto executionStart = std::chrono::steady_clock::now();
    YewPar::Skeletons::API::Params<unsigned> searchParameters;
    searchParameters.initialBound = initial.makespan;
 
@@ -469,7 +465,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
   }
 
 
-         auto executionTime = duration_cast<microseconds>(std::chrono::steady_clock::now(); - executionStart);
+         auto executionTime = duration_cast<microseconds>(std::chrono::steady_clock::now() - executionStart);
          cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
       for(int i =0; i < space.jobs; i++) cout << sol.sol.sequence[i] + 1 << " ";
          cout << "\n";
