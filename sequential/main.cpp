@@ -175,9 +175,11 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             if (node->s2.empty()){
                // auto seq0start = high_resolution_clock::now();
                // bounds.push_back(newMsum[0] + getMinQ(&left, flowshop, 0));
+               cout<<"node.s2Num == 0\n";
                bound = max(bound, newMsum[0] + getMinQ(left, *flowshop, 0, leftNum));
             } else {
                // bounds.push_back(newMsum[0] + node->c2[0]); 
+               cout<<"node.s2Num != 0\n";
                bound = max(bound, newMsum[0] + node->c2[0]);
             }
             //bounds for the rest of machines
@@ -186,16 +188,18 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                c1[m] = max(c1[m-1], node->c1[m]) + flowshop->operations[m][job];
                //if childs o2 is empty
                if (node->s2.empty()){
+                  cout<<"node.s2Num == 0\n";
                   // bounds.push_back(c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
                   bound = max(bound, c1[m] + newMsum[m] + getMinQ(left, *flowshop, m, leftNum));
                } else {
                   // bounds.push_back(c1[m] + newMsum[m] + node->c2[m]);
                   bound = max(bound, c1[m] + newMsum[m] + node->c2[m]);
+                   cout<<"node.s2Num != 0\n";
                }
             }
             // int lb = *max_element(bounds.begin(), bounds.end());
                // boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-            // cout<<"LB: "<< lb<<"\n";
+             cout<<"LB: "<< bound<<"\n";
             if (bound < ub){
                auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
@@ -227,11 +231,13 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
 
                //machine m bound
                if (node->s1.empty()){
+                                    cout<<"node.s1Num == 0\n";
                   // auto seq0start = high_resolution_clock::now();
                   // bounds.push_back(newMsum[flowshop->machines-1] + getMinQ(&left, flowshop, flowshop->machines-1));
                   // partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
                   bound = max(bound, newMsum[flowshop->machines-1] + getMinR(left, *flowshop, 0, leftNum));
                } else {
+                   cout<<"node.s1Num != 0\n";
                   // bounds.push_back(newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]); 
                   bound = max(bound, newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]);
                   }
@@ -241,16 +247,19 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                c2[m] = max(c2[m+1], node->c2[m]) + flowshop->operations[m][job];
                //if childs o1 is empty
                if (node->s1.empty()){
+                                    cout<<"node.s1Num == 0\n";
+
                   // bounds.push_back(c2[m] + newMsum[m] + getMinR(&left, flowshop, m));
                   bound = max(bound, c2[m] + newMsum[m] + getMinR(left, *flowshop, m, leftNum));
                } else {
+                                    cout<<"node.s1Num != 0\n";
                   // bounds.push_back(c2[m] + newMsum[m] + node->c1[m]);
                   bound = max(bound, c2[m] + newMsum[m] + node->c1[m]);
                }
             }
             // int lb = *max_element(bounds.begin(), bounds.end());
                // boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-               // cout<<"LB: "<< lb<<"\n";
+             cout<<"LB: "<< bound<<"\n";
             if (bound < ub){
                auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
@@ -286,7 +295,7 @@ void solve(FSPspace* flowshop){
 
    //initialize problem
    vector<int> solution;
-   tie(solution, ub) = initilizeUpperBound(flowshop);
+   // tie(solution, ub) = initilizeUpperBound(flowshop);
 
    cout <<"UB seq: ";
    for (int i = 0; i<solution.size(); i++) cout<<solution[i]<<" ";
