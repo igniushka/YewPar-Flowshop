@@ -212,13 +212,12 @@ for (int s2Index = space.jobs-node.s2Num; s2Index < space.jobs; s2Index++){
    node.sol = FSPSolution<NUMJOBS>{node.s1, makaespan};
 }
 
-struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES, NUMJOBS>, FSPspace<NUMMACHINES, NUMJOBS>> {
-//   std::vector<int> items;
+struct FSPGenerator : YewPar::NodeGenerator<FSPNode<NUMMACHINES, NUMJOBS>, FSPspace<NUMMACHINES, NUMJOBS>> {
   int pos;
   std::reference_wrapper<const FSPspace<NUMMACHINES, NUMJOBS>> space;
   std::reference_wrapper<const FSPNode<NUMMACHINES, NUMJOBS>> n;
 
-  GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES, NUMJOBS> & n) :
+  FSPGenerator (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES, NUMJOBS> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
       nodesDecomposed++;
       this->numChildren = n.leftNum;
@@ -455,7 +454,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
    if (skeletonType == "seq") {
       cout<<"Sequential skeleton\n";
 
-      sol = YewPar::Skeletons::Seq<GenNode,
+      sol = YewPar::Skeletons::Seq<FSPGenerator,
                                    YewPar::Skeletons::API::Optimisation,
                                    YewPar::Skeletons::API::BoundFunction<upperBound_func>,
                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
@@ -465,7 +464,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
       cout<<"stacksteal skeleton\n";
 
     searchParameters.stealAll = static_cast<bool>(opts.count("chunked"));
-    sol = YewPar::Skeletons::StackStealing<GenNode,
+    sol = YewPar::Skeletons::StackStealing<FSPGenerator,
                                            YewPar::Skeletons::API::Optimisation,
                                            YewPar::Skeletons::API::BoundFunction<upperBound_func>,
                                            YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
@@ -476,7 +475,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
      cout<<"depthbounded skeleton with depth: "<<spawnDepth<<"\n";
 
     searchParameters.spawnDepth = spawnDepth;
-    sol = YewPar::Skeletons::DepthBounded<GenNode,
+    sol = YewPar::Skeletons::DepthBounded<FSPGenerator,
                                          YewPar::Skeletons::API::Optimisation,
                                          YewPar::Skeletons::API::BoundFunction<upperBound_func>,
                                          YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
@@ -486,7 +485,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
     cout<<"budget skeleton with budget: "<<budget<<"\n";
 
     searchParameters.backtrackBudget = budget;
-    sol = YewPar::Skeletons::Budget<GenNode,
+    sol = YewPar::Skeletons::Budget<FSPGenerator,
                                     YewPar::Skeletons::API::Optimisation,
                                     YewPar::Skeletons::API::BoundFunction<upperBound_func>,
                                     YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
