@@ -18,6 +18,8 @@ using namespace std;
    int ub = 999999;
   
 #define NUMJOBS 20
+#define NUMMACHINES 20
+
 
 struct JobLength{
    int index;
@@ -32,15 +34,17 @@ struct PartialNode{
 
 struct Node {
    // vector<int> left;
-   array<int, NUMJOBS> left;
-   unsigned leftNum;
-   vector<int> s1;
-   vector<int> s2;
-   int* c1;
-   int* c2;
-   int lb;
-   int* mSum;
-   int depth;
+  array<int, NUMJOBS> left;
+  unsigned leftNum;
+  array<int, NUMJOBS> s1;
+  unsigned s1Num;
+  array<int, NUMJOBS> s2;
+  unsigned s2Num;
+  int lb;
+  int depth;
+  array<int, NUMMACHINES> c1;
+  array<int, NUMMACHINES> c2;
+  array<int, NUMMACHINES> mSum;
 };
 
 struct FSPspace {
@@ -54,6 +58,22 @@ struct FSPspace {
 
 bool compareJobLengths(JobLength j1, JobLength j2){
    return j1.length > j2.length;
+}
+
+int calculateMakespan(array<int, NUMJOBS> & jobs, FSPspace* flowshop){
+     array<int, NUMMACHINES> completionTimes;
+  for (int m = 0; m < flowshop->machines; m++){
+     completionTimes[m] = 0;
+  }
+   for (int i = 0; i<flowshop->jobs; i++){
+      int jobIndex = jobs[i];
+      completionTimes[0]+= flowshop->operations[0][jobIndex];
+         for (int m = 1; m<flowshop->machines; m++){
+            completionTimes[m] = max(completionTimes[m-1], completionTimes[m]) + flowshop->operations[m][jobIndex];
+   }
+   }
+   int result = completionTimes[flowshop->machines-1];
+   return result;
 }
 
 int calculateSequence(vector<int>* jobs, FSPspace* flowshop){
@@ -91,7 +111,7 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
 }
 
 
-tuple<vector<int>, int> initilizeUpperBound(FSPspace* flowshop){
+tuple<array<int, NUMJOBS>, int> initilizeUpperBound(FSPspace* flowshop){
    vector<JobLength> jobLengths;
    vector<int> schedule;
    for (int j = 0; j< flowshop->jobs; j++){
@@ -113,7 +133,11 @@ tuple<vector<int>, int> initilizeUpperBound(FSPspace* flowshop){
       schedule.assign(seq.begin(), seq.end());
       best = newBest;
    }
-   return make_tuple(schedule, best);
+   array<int, NUMJOBS> solution;
+   for (int i =0; i < schedule.size(); i++){
+       solution[i] = schedule[i];
+    }
+   return make_tuple(solution, best);
 }
 
 int getMinQ(array<int, NUMJOBS> jobsLeft, FSPspace &flowshop, int machine, int leftNum){
@@ -137,22 +161,14 @@ bool compareNodes(Node *node1, Node *node2){
 }
 
 void deleteNode(Node* node){ 
-   delete [] node->c1;
-   delete [] node->c2;
-   delete [] node->mSum;
    delete(node);
 }
 
 Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
-            // auto boundingStart = high_resolution_clock::now();
-            // auto boundAStart = high_resolution_clock::now();
             int job = node->left[j];
             int depth = node->depth + 1;
-            // auto startBound=high_resolution_clock::now();
-            // auto otherOPTime = high_resolution_clock::now();
-            // vector<int>bounds;
             int bound = INT_MIN;
-            int *newMsum = new int [flowshop->machines];
+             array<int, NUMMACHINES> newMsum;
             int leftNum = node->leftNum -1;
             array<int, NUMJOBS> left;
             int newIndex = 0;
@@ -168,18 +184,13 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
             }
 
             if (depth % 2 == 1){ // (o1 j, o2)
-            int *c1 = new int [flowshop->machines];
+            array<int, NUMMACHINES> c1;
             c1[0] = node->c1[0] + flowshop->operations[0][job];
 
             //Machine 1 bound
-            if (node->s2.empty()){
-               // auto seq0start = high_resolution_clock::now();
-               // bounds.push_back(newMsum[0] + getMinQ(&left, flowshop, 0));
-               cout<<"node.s2Num == 0\n";
+            if (node->s2Num==0){
                bound = max(bound, newMsum[0] + getMinQ(left, *flowshop, 0, leftNum));
             } else {
-               // bounds.push_back(newMsum[0] + node->c2[0]); 
-               cout<<"node.s2Num != 0\n";
                bound = max(bound, newMsum[0] + node->c2[0]);
             }
             //bounds for the rest of machines
@@ -187,101 +198,65 @@ Node* boundAndCreateNode(Node *node, FSPspace *flowshop, int j){
                //update c1 with the new job times
                c1[m] = max(c1[m-1], node->c1[m]) + flowshop->operations[m][job];
                //if childs o2 is empty
-               if (node->s2.empty()){
-                  cout<<"node.s2Num == 0\n";
-                  // bounds.push_back(c1[m] + newMsum[m] + getMinQ(&left, flowshop, m));
+               if (node->s2Num==0){
                   bound = max(bound, c1[m] + newMsum[m] + getMinQ(left, *flowshop, m, leftNum));
                } else {
-                  // bounds.push_back(c1[m] + newMsum[m] + node->c2[m]);
                   bound = max(bound, c1[m] + newMsum[m] + node->c2[m]);
-                   cout<<"node.s2Num != 0\n";
                }
             }
-            // int lb = *max_element(bounds.begin(), bounds.end());
-               // boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-             cout<<"LB: "<< bound<<"\n";
             if (bound < ub){
-               auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
                child->s2 = node->s2;
+               child->s2Num = node->s2Num;
                child->s1 = node->s1;
-               child->s1.push_back(job);
+               child->s1[node->s1Num] = job;
+               child->s1Num = node->s1Num + 1;
                child->c1=c1;
-               child->c2 = new int [flowshop->machines];
-               std::memcpy(child->c2, node->c2, sizeof(int)*flowshop->machines); //can rely on parent c1
+               child->c2 = node->c2; //can rely on parent c1
                child->mSum = newMsum;
                child->left = left;
                child->leftNum = leftNum;
                child->lb =bound;
                child->depth = depth;
-               // boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
-               // boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child;
             } else {
-               //  cout<<bound<<" PRUNED\n";
-               delete [] newMsum;
-               delete [] c1;
-               // boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return NULL;
             }
 
             }else{  // (o1, j o2)
-               int *c2 = new int [flowshop->machines];
+               array<int, NUMMACHINES> c2;
                c2[flowshop->machines-1] = node->c2[flowshop->machines-1] + flowshop->operations[flowshop->machines-1][job];
 
                //machine m bound
-               if (node->s1.empty()){
-                                    cout<<"node.s1Num == 0\n";
-                  // auto seq0start = high_resolution_clock::now();
-                  // bounds.push_back(newMsum[flowshop->machines-1] + getMinQ(&left, flowshop, flowshop->machines-1));
-                  // partialSeq0Time += duration_cast<microseconds>(high_resolution_clock::now() - seq0start);
+               if (node->s1Num==0){
                   bound = max(bound, newMsum[flowshop->machines-1] + getMinR(left, *flowshop, 0, leftNum));
                } else {
-                   cout<<"node.s1Num != 0\n";
-                  // bounds.push_back(newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]); 
                   bound = max(bound, newMsum[flowshop->machines-1] + node->c1[flowshop->machines-1]);
                   }
-            //machines m-1 -> 1 bounds
             for (int m = flowshop->machines-2; m >= 0; m--){
-               //update c2 with the new job times
                c2[m] = max(c2[m+1], node->c2[m]) + flowshop->operations[m][job];
-               //if childs o1 is empty
-               if (node->s1.empty()){
-                                    cout<<"node.s1Num == 0\n";
-
-                  // bounds.push_back(c2[m] + newMsum[m] + getMinR(&left, flowshop, m));
+               if (node->s1Num==0){
                   bound = max(bound, c2[m] + newMsum[m] + getMinR(left, *flowshop, m, leftNum));
                } else {
-                                    cout<<"node.s1Num != 0\n";
-                  // bounds.push_back(c2[m] + newMsum[m] + node->c1[m]);
                   bound = max(bound, c2[m] + newMsum[m] + node->c1[m]);
                }
             }
-            // int lb = *max_element(bounds.begin(), bounds.end());
-               // boundATime+=duration_cast<microseconds>(high_resolution_clock::now() - boundAStart);
-             cout<<"LB: "<< bound<<"\n";
             if (bound < ub){
-               auto boundBStart = high_resolution_clock::now();
                Node* child = new Node;
                child->s1 = node->s1;
+               child->s1Num = node->s1Num;
                child->s2 = node->s2;
-               child->s2.insert(child->s2.begin(), job);
+               child->s2[(flowshop->jobs-1) - node->s2Num] = job;
+               child->s2Num = node->s2Num + 1;
                child->c2 = c2;
-               child->c1 = new int [flowshop->machines];
-               std::memcpy(child->c1, node->c1, sizeof(int)*flowshop->machines); //can rely on parent c2
+               child->c1 = node->c1; //can rely on parent c2
                child->mSum = newMsum;
                child->left = left;
                child->leftNum = leftNum;
                child->lb = bound;
                child->depth = depth;
-               // boundBTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundBStart);
-               // boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return child; 
             } else {
-               // cout<<bound<<" PRUNED\n";
-               delete [] newMsum;
-               delete [] c2;
-               //  boundingTime+=duration_cast<microseconds>(high_resolution_clock::now() - boundingStart);
                return NULL;
             }
 
@@ -294,18 +269,17 @@ void solve(FSPspace* flowshop){
    auto start = high_resolution_clock::now(); 
 
    //initialize problem
-   vector<int> solution;
-   // tie(solution, ub) = initilizeUpperBound(flowshop);
+    array<int, NUMJOBS> solution;
+    tie(solution, ub) = initilizeUpperBound(flowshop);
 
    cout <<"UB seq: ";
-   for (int i = 0; i<solution.size(); i++) cout<<solution[i]<<" ";
+   for (int i = 0; i<flowshop->jobs; i++) cout<<solution[i]<<" ";
    cout <<"UB: " << ub <<"\n";
 
    vector<Node*> problems;
    Node *root = new Node;
-   root->c1 = new int [flowshop->machines];
-   root->c2 = new int [flowshop->machines];
-   root->mSum = new int [flowshop->machines];
+   root->s1Num = 0;
+   root->s2Num = 0;
    root->lb = 0; //lb for root doesnt matter as long as it's less than UB
    root->depth = 0;
    root->leftNum=flowshop->jobs;
@@ -349,7 +323,6 @@ void solve(FSPspace* flowshop){
          }
 
       // sort the nodes in descenging lb order and append it to problem list
-        auto otherOPTime = high_resolution_clock::now();
         if (!newProblems.empty()){
          // sort(newProblems.begin(), newProblems.end(), compareNodes);
          std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
@@ -360,17 +333,22 @@ void solve(FSPspace* flowshop){
            deleteNode(node);
         }
       } else { // if one node is left
-      vector<int> candiate;
-      candiate.assign(node->s1.begin(), node->s1.end());
-      candiate.push_back(node->left.front());
-      std::copy(node->s2.begin(), node->s2.end(), std::back_inserter(candiate));
-      auto upperBoundstart = high_resolution_clock::now();
-      int makespan = calculateSequence(&candiate, flowshop);
+      array<int, NUMJOBS> candiate;
+      for (int i = 0; i < node->s1Num; i++){
+         candiate[i] = node->s1[i];
+      }
+      candiate[node->s1Num] = node->left[0];
+
+      for (int i =(flowshop->jobs) - node->s2Num; i < flowshop->jobs; i++ ){
+         candiate[i] = node->s2[i];
+      }
+
+      int makespan = calculateMakespan(candiate, flowshop);
       deleteNode(node);
       if (makespan < ub){
             ub = makespan;
-            cout<<"NEW SOL: "<<ub<<"\n";
-            solution.assign(candiate.begin(), candiate.end());
+            // cout<<"NEW SOL: "<<ub<<"\n";
+            solution = candiate;
             }
          } 
       }
