@@ -455,25 +455,21 @@ int hpx_main(boost::program_options::variables_map & opts) {
       sol = YewPar::Skeletons::Seq<FSPGenerator,  YewPar::Skeletons::API::Optimisation,  YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>> ::search(space, root, searchParameters);
     
   } else if (skeletonType == "stacksteal") {
-      cout<<"stacksteal skeleton\n";
+    cout<<"stacksteal skeleton\n";
 
     searchParameters.stealAll = static_cast<bool>(opts.count("chunked"));
     sol = YewPar::Skeletons::StackStealing<FSPGenerator, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>> ::search(space, root, searchParameters);
-  } 
-   else if (skeletonType == "depthbounded") {
-     auto spawnDepth = opts["spawn-depth"].as<unsigned>();
-     cout<<"depthbounded skeleton with depth: "<<spawnDepth<<"\n";
+  } else if (skeletonType == "depthbounded") {
+    cout<<"depthbounded skeleton with depth: "<<opts["spawn-depth"].as<unsigned>()<<"\n";
 
-    searchParameters.spawnDepth = spawnDepth;
+    searchParameters.spawnDepth = opts["spawn-depth"].as<unsigned>();
     sol = YewPar::Skeletons::DepthBounded<FSPGenerator, YewPar::Skeletons::API::Optimisation,  YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>> ::search(space, root, searchParameters);
 } else if (skeletonType == "budget") {
-  auto budget = opts["backtrack-budget"].as<unsigned>();
-    cout<<"budget skeleton with budget: "<<budget<<"\n";
+    cout<<"budget skeleton with budget: "<<opts["backtrack-budget"].as<unsigned>()<<"\n";
 
-    searchParameters.backtrackBudget = budget;
+    searchParameters.backtrackBudget = opts["backtrack-budget"].as<unsigned>();
     sol = YewPar::Skeletons::Budget<FSPGenerator, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func> YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>> ::search(space, root, searchParameters);
   }
-
 
       auto executionTime = duration_cast<microseconds>(std::chrono::steady_clock::now() - executionStart);
       cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: ";
