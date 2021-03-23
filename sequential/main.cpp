@@ -24,8 +24,6 @@ using namespace std;
 struct JobLength{
    int index;
    int length;
-   JobLength(){
-   }
 };
 
 struct PartialNode{
