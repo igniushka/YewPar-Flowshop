@@ -450,47 +450,24 @@ int hpx_main(boost::program_options::variables_map & opts) {
    auto sol = root;
    YewPar::Skeletons::API::Params<unsigned> searchParameters;
    searchParameters.initialBound = initial.makespan;
-   // searchParameters.initialBound = 999999;
 
    if (skeletonType == "seq") {
       cout<<"Sequential skeleton\n";
-
-      sol = YewPar::Skeletons::Seq<GenNode,
-                                   YewPar::Skeletons::API::Optimisation,
-                                   YewPar::Skeletons::API::BoundFunction<bound_func>,
-                                   YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
-            ::search(space, root, searchParameters);
+      sol = YewPar::Skeletons::Seq<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
     
   } else if (skeletonType == "stacksteal") {
       cout<<"stacksteal skeleton\n";
-
-    searchParameters.stealAll = static_cast<bool>(opts.count("chunked"));
-    sol = YewPar::Skeletons::StackStealing<GenNode,
-                                           YewPar::Skeletons::API::Optimisation,
-                                           YewPar::Skeletons::API::BoundFunction<bound_func>,
-                                           YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
-        ::search(space, root, searchParameters);
+      searchParameters.stealAll = static_cast<bool>(opts.count("chunked"));
+      sol = YewPar::Skeletons::StackStealing<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>> ::search(space, root, searchParameters);
   } 
    else if (skeletonType == "depthbounded") {
-     auto spawnDepth = opts["spawn-depth"].as<unsigned>();
-     cout<<"depthbounded skeleton with depth: "<<spawnDepth<<"\n";
-
-    searchParameters.spawnDepth = spawnDepth;
-    sol = YewPar::Skeletons::DepthBounded<GenNode,
-                                         YewPar::Skeletons::API::Optimisation,
-                                         YewPar::Skeletons::API::BoundFunction<bound_func>,
-                                         YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
-               ::search(space, root, searchParameters);
+      cout<<"depthbounded skeleton with depth: "<<opts["spawn-depth"].as<unsigned>()<<"\n";
+      searchParameters.spawnDepth = opts["spawn-depth"].as<unsigned>();
+      sol = YewPar::Skeletons::DepthBounded<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
 } else if (skeletonType == "budget") {
-  auto budget = opts["backtrack-budget"].as<unsigned>();
-    cout<<"budget skeleton with budget: "<<budget<<"\n";
-
-    searchParameters.backtrackBudget = budget;
-    sol = YewPar::Skeletons::Budget<GenNode,
-                                    YewPar::Skeletons::API::Optimisation,
-                                    YewPar::Skeletons::API::BoundFunction<bound_func>,
-                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
-        ::search(space, root, searchParameters);
+      cout<<"budget skeleton with budget: "<<opts["backtrack-budget"].as<unsigned>()<<"\n";
+      searchParameters.backtrackBudget = opts["backtrack-budget"].as<unsigned>();
+      sol = YewPar::Skeletons::Budget<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
   }
 
 
@@ -508,31 +485,9 @@ int hpx_main(boost::program_options::variables_map & opts) {
 
 int main(int argc, char* argv[]) {
   boost::program_options::options_description
-    desc_commandline("Usage: " HPX_APPLICATION_STRING " [options]");
-
-  desc_commandline.add_options()
-      ( "skeleton",
-        boost::program_options::value<std::string>()->default_value("seq"),
-        "Which skeleton to use: seq, depthbounded, stacksteal, budget, or ordered"
-        )
-      ( "input-file,f",
-        boost::program_options::value<std::string>()->required(),
-        "Input problem"
-        )
-      ( "backtrack-budget,b",
-        boost::program_options::value<unsigned>()->default_value(500),
-        "Number of backtracks before spawning work"
-        )
-       ("chunked", "Use chunking with stack stealing")
-       ( "spawn-depth,d",
-        boost::program_options::value<unsigned>()->default_value(0),
-        "Depth in the tree to spawn until (for parallel skeletons only)"
-        );
-
+  desc_commandline("Usage: " HPX_APPLICATION_STRING " [options]");
+  desc_commandline.add_options()("skeleton",  boost::program_options::value<std::string>()->default_value("seq"), "Which skeleton to use: seq, depthbounded, stacksteal, budget, or ordered") ("input-file,f", boost::program_options::value<std::string>()->required(), "Input problem") ("backtrack-budget,b", boost::program_options::value<unsigned>()->default_value(500), "Number of backtracks before spawning work") ("chunked", "Use chunking with stack stealing") ("spawn-depth,d", boost::program_options::value<unsigned>()->default_value(0), "Depth in the tree to spawn until (for parallel skeletons only)");
   YewPar::registerPerformanceCounters();
-
   return hpx::init(desc_commandline, argc, argv);
 }
-
-
 
