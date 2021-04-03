@@ -338,7 +338,7 @@ unsigned lowerBound(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<
 }
 
 
-typedef func<decltype(&lowerBound), &lowerBound> upperBound_func;
+typedef func<decltype(&lowerBound), &lowerBound> bound_func;
 
 int invalidFormatError(string message){
    cout<<"input file has invalid format: "<<message<<"\n";
@@ -457,7 +457,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
 
       sol = YewPar::Skeletons::Seq<GenNode,
                                    YewPar::Skeletons::API::Optimisation,
-                                   YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                   YewPar::Skeletons::API::BoundFunction<bound_func>,
                                    YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
             ::search(space, root, searchParameters);
     
@@ -467,7 +467,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
     searchParameters.stealAll = static_cast<bool>(opts.count("chunked"));
     sol = YewPar::Skeletons::StackStealing<GenNode,
                                            YewPar::Skeletons::API::Optimisation,
-                                           YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                           YewPar::Skeletons::API::BoundFunction<bound_func>,
                                            YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
         ::search(space, root, searchParameters);
   } 
@@ -478,7 +478,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
     searchParameters.spawnDepth = spawnDepth;
     sol = YewPar::Skeletons::DepthBounded<GenNode,
                                          YewPar::Skeletons::API::Optimisation,
-                                         YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                         YewPar::Skeletons::API::BoundFunction<bound_func>,
                                          YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
                ::search(space, root, searchParameters);
 } else if (skeletonType == "budget") {
@@ -488,7 +488,7 @@ int hpx_main(boost::program_options::variables_map & opts) {
     searchParameters.backtrackBudget = budget;
     sol = YewPar::Skeletons::Budget<GenNode,
                                     YewPar::Skeletons::API::Optimisation,
-                                    YewPar::Skeletons::API::BoundFunction<upperBound_func>,
+                                    YewPar::Skeletons::API::BoundFunction<bound_func>,
                                     YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>
         ::search(space, root, searchParameters);
   }
