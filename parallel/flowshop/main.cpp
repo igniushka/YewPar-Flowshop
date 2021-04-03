@@ -38,13 +38,15 @@
 
 using namespace std::chrono; 
 using namespace std;
-   unsigned long long int nodesDecomposed = 0;
+using namespace YewPar::Skeletons;
+using namespace YewPar::Skeletons::API;
+
+
+unsigned long long int nodesDecomposed = 0;
 
 struct JobLength{
    int index;
    int length;
-   JobLength(){
-   }
 };
 
 template <unsigned N>
@@ -174,7 +176,6 @@ tuple<vector<int>, int> findBestSequence(vector<int> scheduled, int unscheduled,
       schedule.assign(seq.begin(), seq.end());
       best = newBest;
    }
-   // return make_tuple(schedule, best);
     array<int, NUMJOBS> solution;
     for (int i =0; i < schedule.size(); i++){
        solution[i] = schedule[i];
@@ -213,7 +214,6 @@ for (int s2Index = space.jobs-node.s2Num; s2Index < space.jobs; s2Index++){
 }
 
 struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES, NUMJOBS>, FSPspace<NUMMACHINES, NUMJOBS>> {
-//   std::vector<int> items;
   int pos;
   std::reference_wrapper<const FSPspace<NUMMACHINES, NUMJOBS>> space;
   std::reference_wrapper<const FSPNode<NUMMACHINES, NUMJOBS>> n;
@@ -333,7 +333,6 @@ auto flowshop = space.get();
 };
 
 unsigned lowerBound(const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES, NUMJOBS> & n) {
-   //TODO implement the LB calculation here
    return n.lb;
 }
 
@@ -448,28 +447,27 @@ int hpx_main(boost::program_options::variables_map & opts) {
    root.sol = initial;
    root.depth = 0;
    auto sol = root;
-   YewPar::Skeletons::API::Params<unsigned> searchParameters;
+   Params<unsigned> searchParameters;
    searchParameters.initialBound = initial.makespan;
 
    if (skeletonType == "seq") {
       cout<<"Sequential skeleton\n";
-      sol = YewPar::Skeletons::Seq<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
+      sol = Seq<GenNode, Optimisation, BoundFunction<bound_func>, ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
     
   } else if (skeletonType == "stacksteal") {
       cout<<"stacksteal skeleton\n";
       searchParameters.stealAll = static_cast<bool>(opts.count("chunked"));
-      sol = YewPar::Skeletons::StackStealing<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>> ::search(space, root, searchParameters);
+      sol = StackStealing<GenNode, Optimisation, BoundFunction<bound_func>, ObjectiveComparison<std::less<unsigned>>> ::search(space, root, searchParameters);
   } 
    else if (skeletonType == "depthbounded") {
       cout<<"depthbounded skeleton with depth: "<<opts["spawn-depth"].as<unsigned>()<<"\n";
       searchParameters.spawnDepth = opts["spawn-depth"].as<unsigned>();
-      sol = YewPar::Skeletons::DepthBounded<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
+      sol = DepthBounded<GenNode, Optimisation, BoundFunction<bound_func>, ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
 } else if (skeletonType == "budget") {
       cout<<"budget skeleton with budget: "<<opts["backtrack-budget"].as<unsigned>()<<"\n";
       searchParameters.backtrackBudget = opts["backtrack-budget"].as<unsigned>();
-      sol = YewPar::Skeletons::Budget<GenNode, YewPar::Skeletons::API::Optimisation, YewPar::Skeletons::API::BoundFunction<bound_func>, YewPar::Skeletons::API::ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
+      sol = Budget<GenNode, Optimisation, BoundFunction<bound_func>, ObjectiveComparison<std::less<unsigned>>>::search(space, root, searchParameters);
   }
-
 
          auto executionTime = duration_cast<microseconds>(std::chrono::steady_clock::now() - executionStart);
          cout << "Optimal makespan: " << sol.sol.makespan <<"\n" << "Optimal job scheduling order: "; ;
