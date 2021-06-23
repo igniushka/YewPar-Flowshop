@@ -221,6 +221,7 @@ struct GenNode : YewPar::NodeGenerator<FSPNode<NUMMACHINES, NUMJOBS>, FSPspace<N
   GenNode (const FSPspace<NUMMACHINES, NUMJOBS> & space, const FSPNode<NUMMACHINES, NUMJOBS> & n) :
       pos(0), space(std::cref(space)), n(std::cref(n)) {
       nodesDecomposed++;
+      cout << "Bound: " << n.lb << endl; 
       this->numChildren = n.leftNum;
   }
 

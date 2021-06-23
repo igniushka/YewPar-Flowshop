@@ -307,9 +307,10 @@ void solve(FSPspace* flowshop){
       vector<Node*> newProblems;
 
       // if there are more than 1 jobs left
-      if (node->leftNum > 1){
-        if(node->lb < ub){
+      if (node->leftNum > 0){
+         if(node->lb < ub){
            nodesDecomposed++;
+            cout << "Bound: " << node->lb << endl; 
             for (int j = 0; j<node->leftNum; j++){
                Node *child = boundAndCreateNode(node, flowshop, j);
                if (child!=NULL){
@@ -326,16 +327,16 @@ void solve(FSPspace* flowshop){
          std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
         }
          deleteNode(node);
-        } else {
+          } else {
             // cout<<"PRUNED LATER\n";
            deleteNode(node);
         }
+       
       } else { // if one node is left
       array<int, NUMJOBS> candiate;
       for (int i = 0; i < node->s1Num; i++){
          candiate[i] = node->s1[i];
       }
-      candiate[node->s1Num] = node->left[0];
 
       for (int i =(flowshop->jobs) - node->s2Num; i < flowshop->jobs; i++ ){
          candiate[i] = node->s2[i];
