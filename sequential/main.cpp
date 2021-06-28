@@ -164,7 +164,6 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
 
    //initialize problem
     array<int, NUMJOBS> solution;
-   //  tie(solution, ub) = initilizeUpperBound(flowshop);
    FSPSolution<NUMJOBS> sol = initilizeUpperBound(flowshop);
    solution = sol.sequence;
    ub = sol.makespan;
@@ -204,13 +203,8 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
       problems.pop_back();
 
       vector<FSPNode<NUMMACHINES, NUMJOBS>> newProblems;
-
-      // if there are more than 1 jobs left
-      if (node.leftNum > 0){
-
          if(node.lb < ub){
            nodesDecomposed++;
-            // cout << "Bound: " << node.lb << endl; 
             for (int j = 0; j<node.leftNum; j++){
             int job = node.left[j];
             int depth = node.depth + 1;
@@ -325,7 +319,8 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
             //   cout << "FAIL" << endl; 
           }
        
-      } else { // if one node is left
+      
+      if (node.leftNum == 0){  // if one node is left
       array<int, NUMJOBS> candiate;
       for (int i = 0; i < node.s1Num; i++){
          candiate[i] = node.s1[i];
