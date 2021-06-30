@@ -153,11 +153,6 @@ int getMinR(array<int, NUMJOBS> jobsLeft, FSPspace<NUMMACHINES, NUMJOBS>  &flows
    return value;
 }
 
- FSPNode<NUMMACHINES, NUMJOBS> boundAndCreateNode( FSPNode<NUMMACHINES, NUMJOBS> &node, FSPspace<NUMMACHINES, NUMJOBS>  &flowshop, int j){
-
-}
-
-
 //RECURSIVE SOLUTION HERE
 void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
    auto start = high_resolution_clock::now(); 
@@ -173,92 +168,92 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
    for (int i = 0; i<flowshop.jobs; i++) cout<<solution[i]<<" ";
    cout <<"UB: " << ub <<"\n";
 
-   FSPNode<NUMMACHINES, NUMJOBS> root;
+   FSPNode<NUMMACHINES, NUMJOBS> * root = new  FSPNode<NUMMACHINES, NUMJOBS>;
    for (int m = 0; m < flowshop.machines; m++) {
-    root.mSum[m] = 0;
-    root.c1[m] = 0;
-    root.c2[m] = 0;
+    root->mSum[m] = 0;
+    root->c1[m] = 0;
+    root->c2[m] = 0;
   }
   // set all sum(Pkj) unsheduled job sum times on all machines
   for (int j = 0; j < flowshop.jobs; j++) {
-    root.left[j] = j;
+    root->left[j] = j;
     for (int m = 0; m < flowshop.machines; m++) {
-      root.mSum[m] += flowshop.operations[m][j];
+      root->mSum[m] += flowshop.operations[m][j];
     }
   }
    
 
-  root.leftNum = flowshop.jobs;
-  root.s1Num = 0;
-  root.s2Num = 0;
-  root.depth = 0;
+  root->leftNum = flowshop.jobs;
+  root->s1Num = 0;
+  root->s2Num = 0;
+  root->depth = 0;
 
-  vector<FSPNode<NUMMACHINES, NUMJOBS>> problems;
+  vector<FSPNode<NUMMACHINES, NUMJOBS>*> problems;
   problems.push_back(root);
 
    //solve problem recursively
    while (problems.size() > 0){
 
-     FSPNode<NUMMACHINES, NUMJOBS> node = problems.back();
+     FSPNode<NUMMACHINES, NUMJOBS> * node = problems.back();
       problems.pop_back();
 
-      vector<FSPNode<NUMMACHINES, NUMJOBS>> newProblems;
-         if(node.lb < ub){
+      vector<FSPNode<NUMMACHINES, NUMJOBS>*> newProblems;
+         if(node->lb < ub){
            nodesDecomposed++;
-            for (int j = 0; j<node.leftNum; j++){
-            int job = node.left[j];
-            int depth = node.depth + 1;
+            for (int j = 0; j<node->leftNum; j++){
+            int job = node->left[j];
+            int depth = node->depth + 1;
             int bound = INT_MIN;
              array<int, NUMMACHINES> newMsum;
-            int leftNum = node.leftNum -1;
+            int leftNum = node->leftNum -1;
             array<int, NUMJOBS> left;
             int newIndex = 0;
-            for (int i = 0; i< node.leftNum; i++){
+            for (int i = 0; i< node->leftNum; i++){
                if (i != j){
-                  left[newIndex] = node.left[i];
+                  left[newIndex] = node->left[i];
                   newIndex++;
                }
             }
 
             for (int m = 0; m<flowshop.machines; m++){
-               newMsum[m] = node.mSum[m] - flowshop.operations[m][job];
+               newMsum[m] = node->mSum[m] - flowshop.operations[m][job];
             }
 
             if (depth % 2 == 1){ // (o1 j, o2)
             array<int, NUMMACHINES> c1;
-            c1[0] = node.c1[0] + flowshop.operations[0][job];
+            c1[0] = node->c1[0] + flowshop.operations[0][job];
 
             //Machine 1 bound
-            if (node.s2Num==0){
+            if (node->s2Num==0){
                bound = max(bound, newMsum[0] + getMinQ(left, flowshop, 0, leftNum));
             } else {
-               bound = max(bound, newMsum[0] + node.c2[0]);
+               bound = max(bound, newMsum[0] + node->c2[0]);
             }
             //bounds for the rest of machines
             for (int m = 1; m < flowshop.machines; m++){
                //update c1 with the new job times
-               c1[m] = max(c1[m-1], node.c1[m]) + flowshop.operations[m][job];
+               c1[m] = max(c1[m-1], node->c1[m]) + flowshop.operations[m][job];
                //if childs o2 is empty
-               if (node.s2Num==0){
+               if (node->s2Num==0){
                   bound = max(bound, c1[m] + newMsum[m] + getMinQ(left, flowshop, m, leftNum));
                } else {
-                  bound = max(bound, c1[m] + newMsum[m] + node.c2[m]);
+                  bound = max(bound, c1[m] + newMsum[m] + node->c2[m]);
                }
             }
               if (bound < ub){
-               FSPNode<NUMMACHINES, NUMJOBS> child;
-               child.s2 = node.s2;
-               child.s2Num = node.s2Num;
-               child.s1 = node.s1;
-               child.s1[node.s1Num] = job;
-               child.s1Num = node.s1Num + 1;
-               child.c1=c1;
-               child.c2 = node.c2; //can rely on parent c1
-               child.mSum = newMsum;
-               child.left = left;
-               child.leftNum = leftNum;
-               child.lb = bound;
-               child.depth = depth;
+               FSPNode<NUMMACHINES, NUMJOBS> * child = new FSPNode<NUMMACHINES, NUMJOBS>;
+               child->s2 = node->s2;
+               child->s2Num = node->s2Num;
+               child->s1 = node->s1;
+               child->s1[node->s1Num] = job;
+               child->s1Num = node->s1Num + 1;
+               child->c1=c1;
+               child->c2 = node->c2; //can rely on parent c1
+               child->mSum = newMsum;
+               child->left = left;
+               child->leftNum = leftNum;
+               child->lb = bound;
+               child->depth = depth;
                // problems.push_back(child);
                newProblems.insert(newProblems.begin(), child);
 
@@ -266,36 +261,36 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
 
             }else{  // (o1, j o2)
                array<int, NUMMACHINES> c2;
-               c2[flowshop.machines-1] = node.c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
+               c2[flowshop.machines-1] = node->c2[flowshop.machines-1] + flowshop.operations[flowshop.machines-1][job];
 
                //machine m bound
-               if (node.s1Num==0){
+               if (node->s1Num==0){
                   bound = max(bound, newMsum[flowshop.machines-1] + getMinR(left, flowshop, 0, leftNum));
                } else {
-                  bound = max(bound, newMsum[flowshop.machines-1] + node.c1[flowshop.machines-1]);
+                  bound = max(bound, newMsum[flowshop.machines-1] + node->c1[flowshop.machines-1]);
                   }
             for (int m = flowshop.machines-2; m >= 0; m--){
-               c2[m] = max(c2[m+1], node.c2[m]) + flowshop.operations[m][job];
-               if (node.s1Num==0){
+               c2[m] = max(c2[m+1], node->c2[m]) + flowshop.operations[m][job];
+               if (node->s1Num==0){
                   bound = max(bound, c2[m] + newMsum[m] + getMinR(left, flowshop, m, leftNum));
                } else {
-                  bound = max(bound, c2[m] + newMsum[m] + node.c1[m]);
+                  bound = max(bound, c2[m] + newMsum[m] + node->c1[m]);
                }
             }
             if (bound < ub){
-               FSPNode<NUMMACHINES, NUMJOBS> child;
-               child.s1 = node.s1;
-               child.s1Num = node.s1Num;
-               child.s2 = node.s2;
-               child.s2[(flowshop.jobs-1) - node.s2Num] = job;
-               child.s2Num = node.s2Num + 1;
-               child.c2 = c2;
-               child.c1 = node.c1; //can rely on parent c2
-               child.mSum = newMsum;
-               child.left = left;
-               child.leftNum = leftNum;
-               child.lb = bound;
-               child.depth = depth;
+               FSPNode<NUMMACHINES, NUMJOBS> * child = new FSPNode<NUMMACHINES, NUMJOBS>;
+               child->s1 = node->s1;
+               child->s1Num = node->s1Num;
+               child->s2 = node->s2;
+               child->s2[(flowshop.jobs-1) - node->s2Num] = job;
+               child->s2Num = node->s2Num + 1;
+               child->c2 = c2;
+               child->c1 = node->c1; //can rely on parent c2
+               child->mSum = newMsum;
+               child->left = left;
+               child->leftNum = leftNum;
+               child->lb = bound;
+               child->depth = depth;
                // problems.push_back(child); 
                newProblems.insert(newProblems.begin(), child);
             }
@@ -320,14 +315,14 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
           }
        
       
-      if (node.leftNum == 0){  // if one node is left
+      if (node->leftNum == 0){  // if one node is left
       array<int, NUMJOBS> candiate;
-      for (int i = 0; i < node.s1Num; i++){
-         candiate[i] = node.s1[i];
+      for (int i = 0; i < node->s1Num; i++){
+         candiate[i] = node->s1[i];
       }
 
-      for (int i =(flowshop.jobs) - node.s2Num; i < flowshop.jobs; i++ ){
-         candiate[i] = node.s2[i];
+      for (int i =(flowshop.jobs) - node->s2Num; i < flowshop.jobs; i++ ){
+         candiate[i] = node->s2[i];
       }
 
       int makespan = calculateMakespan(candiate, flowshop);
@@ -336,7 +331,8 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
             // cout<<"NEW SOL: "<<ub<<"\n";
             solution = candiate;
             }
-         } 
+         }
+         delete(node);
       }
       auto stop = high_resolution_clock::now(); 
       auto duration = duration_cast<microseconds>(stop - start); 
