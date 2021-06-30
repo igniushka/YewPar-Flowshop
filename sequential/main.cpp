@@ -254,7 +254,6 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
                child->leftNum = leftNum;
                child->lb = bound;
                child->depth = depth;
-               // problems.push_back(child);
                newProblems.insert(newProblems.begin(), child);
 
               }
@@ -291,16 +290,9 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
                child->leftNum = leftNum;
                child->lb = bound;
                child->depth = depth;
-               // problems.push_back(child); 
                newProblems.insert(newProblems.begin(), child);
             }
          } 
-               // cout << "Child LB: " << node.lb << endl; 
-
-               // if (child.lb < ub){
-                  
-               //    // newProblems.insert(newProblems.begin(), child);
-               // }
          }
 
 
@@ -309,12 +301,8 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
          // sort(newProblems.begin(), newProblems.end(), compareNodes);
          std::copy (newProblems.begin(), newProblems.end(), std::back_inserter(problems));
         }
-
-          } else {
-            //   cout << "FAIL" << endl; 
-          }
+      } 
        
-      
       if (node->leftNum == 0){  // if one node is left
       array<int, NUMJOBS> candiate;
       for (int i = 0; i < node->s1Num; i++){
