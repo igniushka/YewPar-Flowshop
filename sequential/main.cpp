@@ -328,7 +328,7 @@ void solve(FSPspace<NUMMACHINES, NUMJOBS> & flowshop){
       cout << "Execution time: " << duration.count() << " microseconds" << endl;
       cout << "Nodes decomposed: " << nodesDecomposed << endl; 
       cout << "Optimal makespan: " << ub <<"\n" << "Optimal job scheduling order: "; ;
-      for(int i =0; i < solution.size(); i++) cout << solution[i] + 1 << " ";
+      for(int i =0; i < flowshop.jobs; i++) cout << solution[i] + 1 << " ";
          cout << "\n";
    }
 int invalidFormatError(string message){
