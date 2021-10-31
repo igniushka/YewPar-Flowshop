@@ -1,0 +1,11 @@
+jobs: 10 machines:5
+15 46 61 32 32 59 68 47 37 85 
+85 42 90 13 9 29 65 32 53 13 
+51 55 97 31 6 63 62 24 48 36 
+96 20 75 32 1 33 81 48 95 11 
+55 72 96 34 34 50 11 39 79 23 
+UB seq: 4 3 7 1 8 2 9 0 5 6 UB: 752
+Execution time: 21368 microseconds
+Nodes decomposed: 9087
+Optimal makespan: 713
+Optimal job scheduling order: 2 9 4 5 1 6 3 10 8 7 
