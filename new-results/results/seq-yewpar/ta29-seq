@@ -20,7 +20,6 @@ jobs: 20 machines:20
 36 98 7 3 5 82 41 2 63 56 85 85 25 98 58 16 99 61 21 26 
 67 96 70 89 5 45 38 79 73 99 33 1 84 79 44 39 16 50 39 55 
 Sequential skeleton
-INITIAL BOUND = 2306
 Optimal makespan: 2237
 Optimal job scheduling order: 1 8 14 6 2 13 7 18 17 4 3 11 15 20 9 10 12 16 19 5 
 Execution time: 1687993644 microseconds
